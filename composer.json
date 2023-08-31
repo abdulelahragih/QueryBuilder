@@ -1,0 +1,22 @@
+{
+    "name": "abdulelahragih/querybuilder",
+    "description": "Fast, lightweight and simple SQL query builder that does not depend on any third-party library besides PDO to execute the queries in a safe way. The syntax is inspired by Laravel Query Builder.",
+    "type": "library",
+    "license": "GPL-3.0-only",
+    "autoload": {
+        "psr-4": {
+            "Abdulelahragih\\QueryBuilder\\": "src/"
+        }
+    },
+    "authors": [
+        {
+            "name": "Abdulelah Ragih",
+            "email": "abdulelah.ggar@gmail.com"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {
+        "php": ">=8.1",
+        "ext-pdo": "*"
+    }
+}
