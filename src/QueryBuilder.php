@@ -13,6 +13,7 @@ use Abdulelahragih\QueryBuilder\Grammar\OffsetClause;
 use Abdulelahragih\QueryBuilder\Grammar\OrderByClause;
 use Abdulelahragih\QueryBuilder\Grammar\SelectClause;
 use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
+use Abdulelahragih\QueryBuilder\Pagination\PaginatedResult;
 use Abdulelahragih\QueryBuilder\Traits\CanPaginate;
 use Abdulelahragih\QueryBuilder\Types\JoinType;
 use Abdulelahragih\QueryBuilder\Types\OrderType;

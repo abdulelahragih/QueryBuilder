@@ -1,6 +1,6 @@
 <?php
 
-namespace Abdulelahragih\QueryBuilder;
+namespace Abdulelahragih\QueryBuilder\Pagination;
 
 use JsonSerializable;
 

@@ -3,8 +3,8 @@ declare(strict_types=1);
 
 namespace Abdulelahragih\QueryBuilder\Traits;
 
-use Abdulelahragih\QueryBuilder\PaginatedResult;
-use Abdulelahragih\QueryBuilder\PaginationInformation;
+use Abdulelahragih\QueryBuilder\Pagination\PaginatedResult;
+use Abdulelahragih\QueryBuilder\Pagination\PaginationInformation;
 use InvalidArgumentException;
 
 trait CanPaginate

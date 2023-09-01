@@ -1,7 +1,6 @@
 <?php
 
-
-namespace Abdulelahragih\QueryBuilder;
+namespace Abdulelahragih\QueryBuilder\Pagination;
 
 class PaginatedResult
 {
