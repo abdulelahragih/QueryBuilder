@@ -32,7 +32,8 @@ class WhereQueryBuilder
         ?string                    $operator = null,
         string|int|float|bool|null $value = null,
         bool                       $and = true
-    ): self {
+    ): self
+    {
         if ($column instanceof Closure) {
             $this->whereNested($column, $and);
             return $this;
@@ -58,10 +59,11 @@ class WhereQueryBuilder
     }
 
     public function orWhere(
-        mixed   $column,
-        ?string $operator = null,
-        ?string $value = null
-    ): self {
+        mixed                      $column,
+        ?string                    $operator = null,
+        string|int|float|bool|null $value = null
+    ): self
+    {
         $this->where($column, $operator, $value, false);
         return $this;
     }
@@ -70,7 +72,8 @@ class WhereQueryBuilder
         string                $column,
         string|int|float|bool $value,
         bool                  $and = true
-    ): self {
+    ): self
+    {
         $placeholder = $this->bindingsManager->add($value);
         $condition = new Condition($column, 'LIKE', $placeholder, $and ? Conjunction::AND() : Conjunction::OR());
         $this->whereClause->addCondition($condition);
@@ -81,7 +84,8 @@ class WhereQueryBuilder
         string $column,
         array  $values,
         bool   $and = true
-    ): self {
+    ): self
+    {
         $placeholders = [];
         foreach ($values as $value) {
             $placeholder = $this->bindingsManager->add($value);
@@ -101,7 +105,8 @@ class WhereQueryBuilder
         string $column,
         array  $values,
         bool   $and = true
-    ): self {
+    ): self
+    {
         $placeholders = [];
         foreach ($values as $value) {
             $placeholder = $this->bindingsManager->add($value);
@@ -120,7 +125,8 @@ class WhereQueryBuilder
     public function whereNull(
         string $column,
         bool   $and = true
-    ): self {
+    ): self
+    {
         $condition = new Condition($column, 'IS', 'NULL', $and ? Conjunction::AND() : Conjunction::OR());
         $this->whereClause->addCondition($condition);
         return $this;
@@ -129,7 +135,8 @@ class WhereQueryBuilder
     public function whereNotNull(
         string $column,
         bool   $and = true
-    ): self {
+    ): self
+    {
         $condition = new Condition($column, 'IS', 'NOT NULL', $and ? Conjunction::AND() : Conjunction::OR());
         $this->whereClause->addCondition($condition);
         return $this;
@@ -140,7 +147,8 @@ class WhereQueryBuilder
         string|int|float|bool $value1,
         string|int|float|bool $value2,
         bool                  $and = true
-    ): self {
+    ): self
+    {
         $placeholder1 = $this->bindingsManager->add($value1);
         $placeholder2 = $this->bindingsManager->add($value2);
         $condition = new Condition(
@@ -158,7 +166,8 @@ class WhereQueryBuilder
         string|int|float|bool $value1,
         string|int|float|bool $value2,
         bool                  $and = true
-    ): self {
+    ): self
+    {
         $placeholder1 = $this->bindingsManager->add($value1);
         $placeholder2 = $this->bindingsManager->add($value2);
         $condition = new Condition(

@@ -191,9 +191,9 @@ class QueryBuilder
     }
 
     public function orWhere(
-        mixed   $column,
-        ?string $operator = null,
-        ?string $value = null
+        mixed                      $column,
+        ?string                    $operator = null,
+        string|int|float|bool|null $value = null
     ): self
     {
         $this->where($column, $operator, $value, false);
