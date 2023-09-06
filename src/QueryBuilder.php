@@ -28,26 +28,40 @@ class QueryBuilder
     use CanPaginate;
 
     private PDO $pdo;
-    private string $table;
-    private SelectClause $selectClause;
+    private ?string $table = null;
+    private ?SelectClause $selectClause = null;
     private WhereQueryBuilder $whereQueryBuilder;
-    private FromClause $fromClause;
+    private ?FromClause $fromClause = null;
     /**
      * @var JoinClause[]
      */
     private array $joinClauses = [];
-    private LimitClause $limitClause;
-    private OffsetClause $offsetClause;
-    private OrderByClause $orderByClause;
+    private ?LimitClause $limitClause = null;
+    private ?OffsetClause $offsetClause = null;
+    private ?OrderByClause $orderByClause = null;
     private BindingsManager $bindingsManager;
     private ?Closure $objConverter = null;
-    private bool $isPluck = false;
 
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
         $this->bindingsManager = new BindingsManager();
         $this->whereQueryBuilder = new WhereQueryBuilder($this->bindingsManager);
+    }
+
+    private function resetBuilderState(): void
+    {
+        $this->bindingsManager->reset();
+        $this->table = null;
+        $this->selectClause = null;
+        $this->whereQueryBuilder = new WhereQueryBuilder($this->bindingsManager);
+        $this->fromClause = null;
+        $this->joinClauses = [];
+        $this->limitClause = null;
+        $this->offsetClause = null;
+        $this->orderByClause = null;
+        $this->bindingsManager = new BindingsManager();
+        $this->objConverter = null;
     }
 
     /**
@@ -60,10 +74,11 @@ class QueryBuilder
         if (!$statement->execute($this->bindingsManager->getBindings())) {
             return throw new QueryBuilderException(QueryBuilderException::EXECUTE_ERROR, 'Error executing the query');
         }
-        $items = $this->isPluck ? $statement->fetchColumn() : $statement->fetchAll(PDO::FETCH_ASSOC);
+        $items = $statement->fetchAll(PDO::FETCH_ASSOC);
         if (isset($this->objConverter)) {
             $items = array_map($this->objConverter, $items);
         }
+        $this->resetBuilderState();
         return Collection::make($items);
     }
 
@@ -76,7 +91,7 @@ class QueryBuilder
         $query = $this->buildPaginatedQuery();
         $statement = $this->pdo->prepare($query);
         if (!$statement->execute($this->bindingsManager->getBindings())) {
-            return new PaginatedResult([], $this->getPaginationInfo(0, $page, $limit));
+            return new PaginatedResult(Collection::make(), $this->getPaginationInfo(0, $page, $limit));
         }
         $items = $statement->fetchAll(PDO::FETCH_ASSOC);
         if (isset($this->objConverter)) {
@@ -86,7 +101,8 @@ class QueryBuilder
         $statement = $this->pdo->prepare($query);
         $statement->execute($this->bindingsManager->getBindings());
         $total = (int)$statement->fetchColumn();
-        return new PaginatedResult($items, $this->getPaginationInfo($total, $page, $limit));
+        $this->resetBuilderState();
+        return new PaginatedResult(Collection::make($items), $this->getPaginationInfo($total, $page, $limit));
     }
 
     /**
@@ -260,6 +276,16 @@ class QueryBuilder
         return $this;
     }
 
+    public function whereNotLike(
+        string                $column,
+        string|int|float|bool $value,
+        bool                  $and = true
+    ): self
+    {
+        $this->whereQueryBuilder->whereNotLike($column, $value, $and);
+        return $this;
+    }
+
     public function whereIn(
         string $column,
         array  $values,
@@ -339,11 +365,18 @@ class QueryBuilder
 
     public function getWhereClause(): string
     {
+        if ($this->whereQueryBuilder->isEmpty()) {
+            return '';
+        }
         return ' ' . $this->whereQueryBuilder->build();
     }
 
     private function getJoinClause(): string
     {
+        if (empty($this->joinClauses)) {
+            return '';
+        }
+
         $joinClauses = '';
         foreach ($this->joinClauses as $joinClause) {
             $joinClauses .= $joinClause->build() . "\n";
@@ -389,14 +422,25 @@ class QueryBuilder
     /**
      * @throws QueryBuilderException
      */
-    public function first(): array|null
+    public function first(string ...$columns): mixed
     {
+        if (!isset($this->selectClause)) {
+            $this->select(...$columns);
+        }
+
         $this->limit(1);
         $result = $this->get();
-        if (count($result) === 0) {
+        if ($result->isEmpty()) {
             return null;
         }
-        return $result[0];
+        $first = $result->first();
+        if (is_array($first)) {
+            if (count($first) === 1) {
+                return array_values($first)[0];
+            }
+            return $first;
+        }
+        return $first;
     }
 
     /**
@@ -404,29 +448,13 @@ class QueryBuilder
      */
     public function pluck(string $column): array
     {
-        $this->isPluck = true;
         $this->select($column);
         $result = $this->get();
-        $values = [];
-        foreach ($result as $row) {
-            $values[] = $row->{$column};
-        }
-        return $values;
+        return $result->pluck($column);
     }
 
-    private function resetBuilderState(): void
+    public function getValues(): array
     {
-        unset($this->selectClause);
-        unset($this->fromClause);
-        unset($this->whereQueryBuilder);
-        unset($this->limitClause);
-        unset($this->offsetClause);
-        unset($this->orderByClause);
-        unset($this->table);
-
-        $this->joinClauses = [];
-        $this->objConverter = null;
-        $this->bindingsManager->reset();
-        $this->isPluck = false;
+        return Collection::make($this->bindingsManager->getBindings())->values()->toArray();
     }
 }
