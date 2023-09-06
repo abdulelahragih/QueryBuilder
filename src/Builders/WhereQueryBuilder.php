@@ -21,6 +21,9 @@ class WhereQueryBuilder
 
     public function build(bool $asSubWhere = false): string
     {
+        if (empty($this->whereClause->conditionClauses->getConditions())) {
+            return '';
+        }
         if ($asSubWhere) {
             return $this->whereClause->conditionClauses->build();
         }
