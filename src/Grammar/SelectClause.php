@@ -20,6 +20,13 @@ class SelectClause implements Clause
         $this->distinct = $distinct;
     }
 
+    /**
+     * @return bool
+     */
+    public function isDistinct(): bool
+    {
+        return $this->distinct;
+    }
 
     public function build(): string
     {
