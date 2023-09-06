@@ -6,6 +6,7 @@ namespace Abdulelahragih\QueryBuilder;
 
 use Abdulelahragih\QueryBuilder\Builders\JoinClauseBuilder;
 use Abdulelahragih\QueryBuilder\Builders\WhereQueryBuilder;
+use Abdulelahragih\QueryBuilder\Data\Collection;
 use Abdulelahragih\QueryBuilder\Grammar\FromClause;
 use Abdulelahragih\QueryBuilder\Grammar\JoinClause;
 use Abdulelahragih\QueryBuilder\Grammar\LimitClause;
@@ -51,7 +52,7 @@ class QueryBuilder
     /**
      * @throws Exception
      */
-    public function get(): array
+    public function get(): Collection
     {
         $query = $this->buildQuery();
         $statement = $this->pdo->prepare($query);
@@ -62,7 +63,7 @@ class QueryBuilder
         if (isset($this->objConverter)) {
             $items = array_map($this->objConverter, $items);
         }
-        return $items;
+        return Collection::make($items);
     }
 
     /**
@@ -114,7 +115,6 @@ class QueryBuilder
 
     private function buildPaginatedQuery(): string
     {
-
         if (empty($this->fromClause)) {
             throw new InvalidArgumentException('You must specify a table');
         }
