@@ -25,7 +25,7 @@ class Collection implements ArrayAccess, Countable, JsonSerializable, IteratorAg
     }
 
     /**
-     * Create a new collection filled with numbers from start inclusive to end Inclusive.
+     * Create a new collection filled with numbers from start to end Inclusive.
      * @param int $start The start number of the sequence (Inclusive).
      * @param int $end The end number of the sequence (Inclusive).
      * @param int $step The increment between numbers. Defaults to 1.
