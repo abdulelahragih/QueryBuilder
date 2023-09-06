@@ -179,6 +179,48 @@ class QueryBuilder
         return $this;
     }
 
+    /**
+     * @throws QueryBuilderException
+     */
+    public function leftJoin(
+        string         $table,
+        string|Closure $column1,
+        ?string        $operator = null,
+        ?string        $column2 = null,
+    ): self
+    {
+        $this->join($table, $column1, $operator, $column2, 'LEFT');
+        return $this;
+    }
+
+    /**
+     * @throws QueryBuilderException
+     */
+    public function rightJoin(
+        string         $table,
+        string|Closure $column1,
+        ?string        $operator = null,
+        ?string        $column2 = null,
+    ): self
+    {
+        $this->join($table, $column1, $operator, $column2, 'RIGHT');
+        return $this;
+    }
+
+    /**
+     * @throws QueryBuilderException
+     */
+    public function fullJoin(
+        string         $table,
+        string|Closure $column1,
+        ?string        $operator = null,
+        ?string        $column2 = null,
+    ): self
+    {
+        $this->join($table, $column1, $operator, $column2, 'FULL');
+        return $this;
+    }
+
     public function where(
         string|Closure             $column,
         ?string                    $operator = null,
