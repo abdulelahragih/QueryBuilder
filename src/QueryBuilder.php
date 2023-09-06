@@ -7,6 +7,7 @@ namespace Abdulelahragih\QueryBuilder;
 use Abdulelahragih\QueryBuilder\Builders\JoinClauseBuilder;
 use Abdulelahragih\QueryBuilder\Builders\WhereQueryBuilder;
 use Abdulelahragih\QueryBuilder\Data\Collection;
+use Abdulelahragih\QueryBuilder\Data\QueryBuilderException;
 use Abdulelahragih\QueryBuilder\Grammar\FromClause;
 use Abdulelahragih\QueryBuilder\Grammar\JoinClause;
 use Abdulelahragih\QueryBuilder\Grammar\LimitClause;
@@ -19,7 +20,6 @@ use Abdulelahragih\QueryBuilder\Traits\CanPaginate;
 use Abdulelahragih\QueryBuilder\Types\JoinType;
 use Abdulelahragih\QueryBuilder\Types\OrderType;
 use Closure;
-use Exception;
 use InvalidArgumentException;
 use PDO;
 
@@ -50,14 +50,14 @@ class QueryBuilder
     }
 
     /**
-     * @throws Exception
+     * @throws QueryBuilderException
      */
     public function get(): Collection
     {
         $query = $this->buildQuery();
         $statement = $this->pdo->prepare($query);
         if (!$statement->execute($this->bindingsManager->getBindings())) {
-            return [];
+            return throw new QueryBuilderException(QueryBuilderException::EXECUTE_ERROR, 'Error executing the query');
         }
         $items = $statement->fetchAll(PDO::FETCH_ASSOC);
         if (isset($this->objConverter)) {
@@ -66,15 +66,8 @@ class QueryBuilder
         return Collection::make($items);
     }
 
-    /**
-     * @throws Exception
-     */
     public function paginate(int $page, int $limit): PaginatedResult
     {
-        if (!isset($this->pdo)) {
-            throw new Exception('You must specify a PDO instance');
-        }
-
         $this->offsetClause = new OffsetClause(($page - 1) * $limit);
         if (!isset($this->limitClause)) {
             $this->limitClause = new LimitClause($limit);
@@ -95,15 +88,21 @@ class QueryBuilder
         return new PaginatedResult($items, $this->getPaginationInfo($total, $page, $limit));
     }
 
+    /**
+     * @throws QueryBuilderException
+     */
     public function toSql(): string
     {
         return $this->buildQuery();
     }
 
+    /**
+     * @throws QueryBuilderException
+     */
     private function buildQuery(): string
     {
         if (!isset($this->fromClause)) {
-            throw new InvalidArgumentException('You must specify a table');
+            throw new QueryBuilderException(QueryBuilderException::MISSING_TABLE, 'You must specify a table');
         }
         if (!isset($this->selectClause)) {
             $this->selectClause = new SelectClause();
@@ -147,15 +146,21 @@ class QueryBuilder
         return $this;
     }
 
+    /**
+     * @throws QueryBuilderException
+     */
     public function orderBy(array $columns, string $type = 'ASC'): self
     {
         if (!OrderType::contains($type)) {
-            throw new InvalidArgumentException('Invalid order type ' . $type);
+            throw new QueryBuilderException(QueryBuilderException::INVALID_ORDER_TYPE, 'Invalid order type ' . $type);
         }
         $this->orderByClause = new OrderByClause($columns, OrderType::from($type));
         return $this;
     }
 
+    /**
+     * @throws QueryBuilderException
+     */
     public function join(
         string         $table,
         string|Closure $column1,
@@ -171,7 +176,7 @@ class QueryBuilder
             return $this;
         }
         if (!in_array($type, ['INNER', 'LEFT', 'RIGHT', 'FULL'], true)) {
-            throw new InvalidArgumentException('Invalid join type ' . $type);
+            throw new QueryBuilderException(QueryBuilderException::INVALID_JOIN_TYPE, 'Invalid join type ' . $type);
         }
         $joinClauseBuilder = new JoinClauseBuilder($this->bindingsManager, $table, JoinType::from($type));
         $joinClauseBuilder->on($column1, $operator, $column2);
