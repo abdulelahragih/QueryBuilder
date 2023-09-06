@@ -1,8 +1,8 @@
 # QueryBuilder
-Fast, lightweight and simple SQL query builder that does not depend on any third-party library besides PDO to execute the queries in a safe way. The syntax is inspired by Laravel Query Builder.
+Fast, lightweight, and simple SQL query builder that does not depend on any third-party library besides PDO to execute the queries in a safe way. The syntax is inspired by Laravel Query Builder.
 
 # Important
-Do not use in production as it is still on beta and many public API might change.
+Do not use it in production as it is still in beta and many public APIs might change.
 ## Features
 
 - Internal bindings manager, so you do not have to worry about binding your values.
@@ -23,16 +23,16 @@ $qb = new \Abdulelahragih\QueryBuilder\QueryBuilder($pdo)
 $result = $qb->table('users')
    ->select('id', 'username', 'phone_number', 'gender')
    ->where('role_id', '=', 1)
-   ->get() # this will return the result as an array
+   ->get() # This will return the result as an array
 ```
 ## TODOs
 - [ ] Support Update, Delete, Insert, and Creating Schemas
 - [ ] Add pluck method
-- [ ] Add support for sub-queries inside Where and Join clause
+- [ ] Add support for sub-queries inside the Where and Join clauses
 - [ ] Implement a Collection class and make it the return type of get()
-- [ ] Add `returning` method to the query allowing you to return columns of inserted/updated row(s)
-- [ ] Add support for different type of databases and refactor code, so it is easy to do so
-
+- [ ] Add a `returning` method to the query allowing you to return columns of inserted/updated row(s)
+- [ ] Add support for different types of databases and refactor code, so it is easy to do so
+- [ ] Add support for Transactions
 
 ## Contribution
 Any contribution to make this project better is welcome
