@@ -2,19 +2,16 @@
 
 namespace Abdulelahragih\QueryBuilder\Pagination;
 
+use Abdulelahragih\QueryBuilder\Data\Collection;
+
 class PaginatedResult
 {
 
-    private array $data;
-    private PaginationInformation $paginationInfo;
-
-    public function __construct(array $data, PaginationInformation $paginationInfo)
+    public function __construct(private readonly Collection $data, private readonly PaginationInformation $paginationInfo)
     {
-        $this->data = $data;
-        $this->paginationInfo = $paginationInfo;
     }
 
-    public function getData(): array
+    public function getData(): Collection
     {
         return $this->data;
     }
@@ -26,7 +23,7 @@ class PaginatedResult
 
     public static function empty(): PaginatedResult
     {
-        return new PaginatedResult([], PaginationInformation::emptyPagination());
+        return new PaginatedResult(Collection::make(), PaginationInformation::emptyPagination());
     }
 
 }
