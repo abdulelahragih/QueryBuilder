@@ -41,6 +41,7 @@ class QueryBuilder
     private OrderByClause $orderByClause;
     private BindingsManager $bindingsManager;
     private ?Closure $objConverter = null;
+    private bool $isPluck = false;
 
     public function __construct(PDO $pdo)
     {
@@ -59,7 +60,7 @@ class QueryBuilder
         if (!$statement->execute($this->bindingsManager->getBindings())) {
             return throw new QueryBuilderException(QueryBuilderException::EXECUTE_ERROR, 'Error executing the query');
         }
-        $items = $statement->fetchAll(PDO::FETCH_ASSOC);
+        $items = $this->isPluck ? $statement->fetchColumn() : $statement->fetchAll(PDO::FETCH_ASSOC);
         if (isset($this->objConverter)) {
             $items = array_map($this->objConverter, $items);
         }
@@ -133,7 +134,9 @@ class QueryBuilder
 
     public function select(string ...$columns): self
     {
+        $isDistinct = isset($this->selectClause) && $this->selectClause->isDistinct();
         $this->selectClause = new SelectClause($columns);
+        $this->selectClause->setDistinct($isDistinct);
         return $this;
     }
 
@@ -345,7 +348,7 @@ class QueryBuilder
         foreach ($this->joinClauses as $joinClause) {
             $joinClauses .= $joinClause->build() . "\n";
         }
-        return ' ' . trim($joinClauses); // TODO optimize
+        return ' ' . trim($joinClauses);
     }
 
     private function getOrderByClause(): string
@@ -381,5 +384,49 @@ class QueryBuilder
     {
         $this->objConverter = $objConverter;
         return $this;
+    }
+
+    /**
+     * @throws QueryBuilderException
+     */
+    public function first(): array|null
+    {
+        $this->limit(1);
+        $result = $this->get();
+        if (count($result) === 0) {
+            return null;
+        }
+        return $result[0];
+    }
+
+    /**
+     * @throws QueryBuilderException
+     */
+    public function pluck(string $column): array
+    {
+        $this->isPluck = true;
+        $this->select($column);
+        $result = $this->get();
+        $values = [];
+        foreach ($result as $row) {
+            $values[] = $row->{$column};
+        }
+        return $values;
+    }
+
+    private function resetBuilderState(): void
+    {
+        unset($this->selectClause);
+        unset($this->fromClause);
+        unset($this->whereQueryBuilder);
+        unset($this->limitClause);
+        unset($this->offsetClause);
+        unset($this->orderByClause);
+        unset($this->table);
+
+        $this->joinClauses = [];
+        $this->objConverter = null;
+        $this->bindingsManager->reset();
+        $this->isPluck = false;
     }
 }
