@@ -26,6 +26,6 @@ class OrderByClause implements Clause
         if (empty($this->columns)) {
             return '';
         }
-        return 'ORDER BY ' . implode(',', $this->columns) . ' ' . $this->orderType->value;
+        return 'ORDER BY ' . implode(', ', $this->columns) . ' ' . $this->orderType->value;
     }
 }

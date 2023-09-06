@@ -19,11 +19,12 @@ class WhereQueryBuilder
         $this->whereClause = new WhereClause();
     }
 
+    public function isEmpty(): bool
+    {
+        return empty($this->whereClause->conditionClauses->getConditions());
+    }
     public function build(bool $asSubWhere = false): string
     {
-        if (empty($this->whereClause->conditionClauses->getConditions())) {
-            return '';
-        }
         if ($asSubWhere) {
             return $this->whereClause->conditionClauses->build();
         }
@@ -79,6 +80,18 @@ class WhereQueryBuilder
     {
         $placeholder = $this->bindingsManager->add($value);
         $condition = new Condition($column, 'LIKE', $placeholder, $and ? Conjunction::AND() : Conjunction::OR());
+        $this->whereClause->addCondition($condition);
+        return $this;
+    }
+
+    public function whereNotLike(
+        string                $column,
+        string|int|float|bool $value,
+        bool                  $and = true
+    ): self
+    {
+        $placeholder = $this->bindingsManager->add($value);
+        $condition = new Condition($column, 'NOT LIKE', $placeholder, $and ? Conjunction::AND() : Conjunction::OR());
         $this->whereClause->addCondition($condition);
         return $this;
     }

@@ -6,6 +6,7 @@ namespace Abdulelahragih\QueryBuilder\Grammar;
 class WhereClause implements Clause
 {
     public readonly ConditionsClause $conditionClauses;
+
     public function __construct(?ConditionsClause $conditionClauses = null)
     {
         $this->conditionClauses = $conditionClauses ?? new ConditionsClause();
@@ -28,6 +29,9 @@ class WhereClause implements Clause
 
     public function build(): string
     {
+        if (empty($this->conditionClauses->getConditions())) {
+            return '';
+        }
         return 'WHERE ' . $this->conditionClauses->build();
     }
 }
