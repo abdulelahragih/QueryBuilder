@@ -25,7 +25,7 @@ trait CanPaginate
             throw new InvalidArgumentException('Limit cannot be 0');
         }
         if ($total == 0) {
-            return PaginationInformation::emptyPagination();
+            return PaginationInformation::emptyPagination($limit);
         }
         // Find out how many items are in the table
         // How many pages will there be
