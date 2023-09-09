@@ -139,9 +139,9 @@ class PaginationInformation implements JsonSerializable
         ];
     }
 
-    public static function emptyPagination(): PaginationInformation
+    public static function emptyPagination(int $limit): PaginationInformation
     {
-        return new PaginationInformation(0, 0, 0, 0, 0, 0, 0, null, null);
+        return new PaginationInformation(0, 0, 0, $limit, 0, 1, 1, null, null);
     }
 
     public function mergeWith(PaginationInformation $paginationInformation): self

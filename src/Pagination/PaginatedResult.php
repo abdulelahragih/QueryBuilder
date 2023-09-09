@@ -21,9 +21,9 @@ class PaginatedResult
         return $this->paginationInfo;
     }
 
-    public static function empty(): PaginatedResult
+    public static function empty(int $limit): PaginatedResult
     {
-        return new PaginatedResult(Collection::make(), PaginationInformation::emptyPagination());
+        return new PaginatedResult(Collection::make(), PaginationInformation::emptyPagination($limit));
     }
 
 }

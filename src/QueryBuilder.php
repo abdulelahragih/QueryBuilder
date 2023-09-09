@@ -91,7 +91,7 @@ class QueryBuilder
         $query = $this->buildPaginatedQuery();
         $statement = $this->pdo->prepare($query);
         if (!$statement->execute($this->bindingsManager->getBindings())) {
-            return new PaginatedResult(Collection::make(), $this->getPaginationInfo(0, $page, $limit));
+            return PaginatedResult::empty($limit);
         }
         $items = $statement->fetchAll(PDO::FETCH_ASSOC);
         if (isset($this->objConverter)) {
