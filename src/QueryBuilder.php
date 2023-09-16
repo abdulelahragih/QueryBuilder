@@ -158,11 +158,9 @@ class QueryBuilder
             throw new InvalidArgumentException('You must specify a table');
         }
         if (!isset($this->selectClause)) {
-            $this->selectClause = new SelectStatement();
+            $this->selectClause = $this->createSelectStatement();
         }
-        return $this->selectClause->build() . $this->getFromClause() .
-            $this->getJoinClause() . $this->getWhereClause() . $this->getOrderByClause() .
-            $this->getLimitClause() . $this->getOffsetClause() . $this->queryEndMarker();
+        return $this->selectClause->build() . $this->queryEndMarker();
     }
 
     public function table(string $table): self
@@ -379,11 +377,6 @@ class QueryBuilder
         return $this;
     }
 
-    private function getFromClause(): string
-    {
-        return ' ' . $this->fromClause->build();
-    }
-
     public function getWhereClause(): string
     {
         if ($this->whereQueryBuilder->isEmpty()) {
@@ -403,30 +396,6 @@ class QueryBuilder
             $joinClauses .= $joinClause->build() . "\n";
         }
         return ' ' . trim($joinClauses);
-    }
-
-    private function getOrderByClause(): string
-    {
-        if (!isset($this->orderByClause)) {
-            return '';
-        }
-        return ' ' . $this->orderByClause->build();
-    }
-
-    private function getLimitClause(): string
-    {
-        if (!isset($this->limitClause)) {
-            return '';
-        }
-        return ' ' . $this->limitClause->build();
-    }
-
-    private function getOffsetClause(): string
-    {
-        if (!isset($this->offsetClause)) {
-            return '';
-        }
-        return ' ' . $this->offsetClause->build();
     }
 
     private function queryEndMarker(): string
