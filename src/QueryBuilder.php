@@ -8,12 +8,12 @@ use Abdulelahragih\QueryBuilder\Builders\JoinClauseBuilder;
 use Abdulelahragih\QueryBuilder\Builders\WhereQueryBuilder;
 use Abdulelahragih\QueryBuilder\Data\Collection;
 use Abdulelahragih\QueryBuilder\Data\QueryBuilderException;
-use Abdulelahragih\QueryBuilder\Grammar\FromClause;
-use Abdulelahragih\QueryBuilder\Grammar\JoinClause;
-use Abdulelahragih\QueryBuilder\Grammar\LimitClause;
-use Abdulelahragih\QueryBuilder\Grammar\OffsetClause;
-use Abdulelahragih\QueryBuilder\Grammar\OrderByClause;
-use Abdulelahragih\QueryBuilder\Grammar\SelectClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\FromClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\JoinClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\LimitClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\OffsetClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
+use Abdulelahragih\QueryBuilder\Grammar\Statements\SelectStatement;
 use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 use Abdulelahragih\QueryBuilder\Pagination\PaginatedResult;
 use Abdulelahragih\QueryBuilder\Traits\CanPaginate;
@@ -29,7 +29,8 @@ class QueryBuilder
 
     private PDO $pdo;
     private ?string $table = null;
-    private ?SelectClause $selectClause = null;
+    private array $columns = [];
+    private ?SelectStatement $selectClause = null;
     private WhereQueryBuilder $whereQueryBuilder;
     private ?FromClause $fromClause = null;
     /**
@@ -41,6 +42,7 @@ class QueryBuilder
     private ?OrderByClause $orderByClause = null;
     private BindingsManager $bindingsManager;
     private ?Closure $objConverter = null;
+
 
     public function __construct(PDO $pdo)
     {
@@ -122,11 +124,32 @@ class QueryBuilder
             throw new QueryBuilderException(QueryBuilderException::MISSING_TABLE, 'You must specify a table');
         }
         if (!isset($this->selectClause)) {
-            $this->selectClause = new SelectClause();
+            $this->selectClause = $this->createSelectStatement();
         }
-        return $this->selectClause->build() . $this->getFromClause() . $this->getJoinClause() .
-            $this->getWhereClause() . $this->getOrderByClause() . $this->getLimitClause() .
-            $this->getOffsetClause() . $this->queryEndMarker();
+        return $this->selectClause->build() . $this->queryEndMarker();
+    }
+
+    private function createSelectStatement(): SelectStatement
+    {
+        return new SelectStatement(
+            $this->fromClause,
+            $this->columns,
+            $this->joinClauses,
+            $this->whereQueryBuilder->getWhereClause(),
+            $this->limitClause,
+            $this->offsetClause,
+            $this->orderByClause
+        );
+    }
+
+    private function buildUpdateStatement()
+    {
+        // TODO implement
+    }
+
+    private function buildDeleteStatement()
+    {
+        // TODO implement
     }
 
     private function buildPaginatedQuery(): string
@@ -135,7 +158,7 @@ class QueryBuilder
             throw new InvalidArgumentException('You must specify a table');
         }
         if (!isset($this->selectClause)) {
-            $this->selectClause = new SelectClause();
+            $this->selectClause = new SelectStatement();
         }
         return $this->selectClause->build() . $this->getFromClause() .
             $this->getJoinClause() . $this->getWhereClause() . $this->getOrderByClause() .
@@ -150,16 +173,14 @@ class QueryBuilder
 
     public function select(string ...$columns): self
     {
-        $isDistinct = isset($this->selectClause) && $this->selectClause->isDistinct();
-        $this->selectClause = new SelectClause($columns);
-        $this->selectClause->setDistinct($isDistinct);
+        $this->columns = $columns;
         return $this;
     }
 
     public function distinct(): self
     {
         if (!isset($this->selectClause)) {
-            $this->selectClause = new SelectClause();
+            $this->selectClause = new SelectStatement();
         }
         $this->selectClause->setDistinct(true);
         return $this;
