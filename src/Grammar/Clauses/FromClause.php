@@ -1,6 +1,6 @@
 <?php
 
-namespace Abdulelahragih\QueryBuilder\Grammar;
+namespace Abdulelahragih\QueryBuilder\Grammar\Clauses;
 
 class FromClause implements Clause
 {

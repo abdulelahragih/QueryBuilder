@@ -2,10 +2,10 @@
 
 namespace Abdulelahragih\QueryBuilder\Builders;
 
-use Abdulelahragih\QueryBuilder\Grammar\Condition;
-use Abdulelahragih\QueryBuilder\Grammar\ConditionsGroup;
-use Abdulelahragih\QueryBuilder\Grammar\Conjunction;
-use Abdulelahragih\QueryBuilder\Grammar\WhereClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\Condition;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\ConditionsGroup;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\Conjunction;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\WhereClause;
 use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 use Closure;
 use InvalidArgumentException;
