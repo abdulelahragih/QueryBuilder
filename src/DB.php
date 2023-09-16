@@ -3,6 +3,7 @@
 namespace Abdulelahragih\QueryBuilder;
 
 use Abdulelahragih\QueryBuilder\Data\Collection;
+use Closure;
 use Exception;
 use PDO;
 
@@ -49,6 +50,22 @@ class DB
     public function inTransaction(): bool
     {
         return $this->pdo->inTransaction();
+    }
+
+
+    /**
+     * @throws Exception
+     */
+    public function transaction(Closure $callback): void
+    {
+        $this->beginTransaction();
+        try {
+            $callback();
+            $this->commit();
+        } catch (Exception $e) {
+            $this->rollBack();
+            throw $e;
+        }
     }
 
     public function lastInsertId(): string
