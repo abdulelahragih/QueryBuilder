@@ -19,7 +19,7 @@ use Abdulelahragih\QueryBuilder\Grammar\Statements\SelectStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\UpdateStatement;
 use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 use Abdulelahragih\QueryBuilder\Pagination\PaginatedResult;
-use Abdulelahragih\QueryBuilder\Traits\CanPaginate;
+use Abdulelahragih\QueryBuilder\Pagination\PaginationInformation;
 use Abdulelahragih\QueryBuilder\Types\JoinType;
 use Abdulelahragih\QueryBuilder\Types\OrderType;
 use Closure;
@@ -104,7 +104,7 @@ class QueryBuilder
         $statement->execute($this->bindingsManager->getBindingsOrNull());
         $total = (int)$statement->fetchColumn();
         $this->resetBuilderState();
-        return new PaginatedResult(Collection::make($items), $this->getPaginationInfo($total, $page, $limit));
+        return new PaginatedResult(Collection::make($items), PaginationInformation::calculateFrom($total, $limit, $page));
     }
 
     /**
