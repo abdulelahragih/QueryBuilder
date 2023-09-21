@@ -26,7 +26,8 @@ $result = $qb->table('users')
    ->get() # This will return the result as an array
 ```
 ## TODOs
-- [ ] Support Update, Delete, Insert, and Creating Schemas
+- [x] ~~Support Update, Delete, Insert~~
+- [ ] Support Creating Schemas
 - [ ] Add pluck method
 - [ ] Add support for sub-queries inside the Where and Join clauses
 - [ ] Implement a Collection class and make it the return type of get()
