@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-namespace Abdulelahragih\QueryBuilder\Grammar;
+namespace Abdulelahragih\QueryBuilder\Grammar\Clauses;
 
 class Condition implements Clause
 {

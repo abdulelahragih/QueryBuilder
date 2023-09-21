@@ -2,32 +2,39 @@
 
 namespace Abdulelahragih\QueryBuilder\Builders;
 
-use Abdulelahragih\QueryBuilder\Grammar\Condition;
-use Abdulelahragih\QueryBuilder\Grammar\ConditionsGroup;
-use Abdulelahragih\QueryBuilder\Grammar\Conjunction;
-use Abdulelahragih\QueryBuilder\Grammar\WhereClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\Condition;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\ConditionsGroup;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\Conjunction;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\WhereClause;
 use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 use Closure;
 use InvalidArgumentException;
 
 class WhereQueryBuilder
 {
-    private WhereClause $whereClause;
+    private readonly WhereClause $whereClause;
 
     public function __construct(private readonly BindingsManager $bindingsManager)
     {
         $this->whereClause = new WhereClause();
     }
 
+    // private api
+    public function __call(string $name, array $arguments)
+    {
+        if($name === 'getWhereClause') {
+            return $this->whereClause;
+        }
+        throw new InvalidArgumentException('Method ' . $name . ' does not exist');
+    }
+
     public function isEmpty(): bool
     {
         return empty($this->whereClause->conditionClauses->getConditions());
     }
-    public function build(bool $asSubWhere = false): string
+
+    public function build(): string
     {
-        if ($asSubWhere) {
-            return $this->whereClause->conditionClauses->build();
-        }
         return $this->whereClause->build();
     }
 

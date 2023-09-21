@@ -2,6 +2,7 @@
 
 namespace Abdulelahragih\QueryBuilder\Pagination;
 
+use InvalidArgumentException;
 use JsonSerializable;
 
 class PaginationInformation implements JsonSerializable
@@ -9,18 +10,49 @@ class PaginationInformation implements JsonSerializable
     private int $total;
     private int $start;
     private int $end;
-    private int $limit;
+    private int $perPage;
     private int $offset;
     private int $pages;
     private int $currentPage;
     private ?int $previousPage;
     private ?int $nextPage;
 
+    public static function calculateFrom(int $total, int $perPage, int $page): PaginationInformation
+    {
+        if ($perPage == 0) {
+            throw new InvalidArgumentException('Per page cannot be 0');
+        }
+        if ($page == 0) {
+            throw new InvalidArgumentException('Page cannot be 0');
+        }
+        if ($total == 0) {
+            return PaginationInformation::emptyPagination($perPage);
+        }
+        $pages = (int)ceil($total / $perPage);
+        $offset = ($page - 1) * $perPage;
+        $start = $offset + 1;
+        $end = min(($offset + $perPage), $total);
+        $previousPage = ($page > 1) ? $page - 1 : null;
+        $nextPage = ($page < $pages) ? $page + 1 : null;
+
+        return new PaginationInformation(
+            $total,
+            $start,
+            $end,
+            $perPage,
+            $offset,
+            $pages,
+            $page,
+            $previousPage,
+            $nextPage
+        );
+    }
+
     /**
      * @param int $total
      * @param int $start
      * @param int $end
-     * @param int $limit
+     * @param int $perPage
      * @param int $offset
      * @param int $pages
      * @param int $currentPage
@@ -31,17 +63,18 @@ class PaginationInformation implements JsonSerializable
         int  $total,
         int  $start,
         int  $end,
-        int  $limit,
+        int  $perPage,
         int  $offset,
         int  $pages,
         int  $currentPage,
         ?int $previousPage,
         ?int $nextPage
-    ) {
+    )
+    {
         $this->total = $total;
         $this->start = $start;
         $this->end = $end;
-        $this->limit = $limit;
+        $this->perPage = $perPage;
         $this->offset = $offset;
         $this->pages = $pages;
         $this->currentPage = $currentPage;
@@ -80,9 +113,9 @@ class PaginationInformation implements JsonSerializable
     /**
      * @return int
      */
-    public function getLimit(): int
+    public function getPerPage(): int
     {
-        return $this->limit;
+        return $this->perPage;
     }
 
     /**
@@ -129,7 +162,7 @@ class PaginationInformation implements JsonSerializable
     {
         return [
             "total" => $this->total,
-            "perPage" => $this->limit,
+            "perPage" => $this->perPage,
             "from" => $this->start,
             "to" => $this->end,
             "pages" => $this->pages,
@@ -150,7 +183,7 @@ class PaginationInformation implements JsonSerializable
             $this->getTotal() + $paginationInformation->getTotal(),
             $this->getMergedLowerBound($this->getStart(), $paginationInformation->getStart()),
             $this->getMergedUpperBound($this->getEnd(), $paginationInformation->getEnd()),
-            $this->getLimit() + $paginationInformation->getLimit(),
+            $this->getPerPage() + $paginationInformation->getPerPage(),
             0,
             max($this->getPages(), $paginationInformation->getPages()),
             $this->getMergedUpperBound($this->getCurrentPage(), $paginationInformation->getCurrentPage()),
@@ -173,5 +206,10 @@ class PaginationInformation implements JsonSerializable
             return max($value1, $value2);
         }
         return $value1 ?? $value2;
+    }
+
+    public function __toString(): string
+    {
+        return json_encode($this->jsonSerialize());
     }
 }

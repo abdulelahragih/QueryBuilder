@@ -2,6 +2,7 @@
 
 namespace Abdulelahragih\QueryBuilder;
 
+use Closure;
 use Exception;
 use PDO;
 
@@ -53,6 +54,22 @@ class DBSingleton
     public static function inTransaction(): bool
     {
         return self::$pdo->inTransaction();
+    }
+
+
+    /**
+     * @throws Exception
+     */
+    public static function transaction(Closure $transaction): void
+    {
+        self::beginTransaction();
+        try {
+            $transaction();
+            self::commit();
+        } catch (Exception $e) {
+            self::rollBack();
+            throw $e;
+        }
     }
 
     public static function lastInsertId(): string

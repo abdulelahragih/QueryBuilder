@@ -2,11 +2,11 @@
 
 namespace Abdulelahragih\QueryBuilder\Builders;
 
-use Abdulelahragih\QueryBuilder\Grammar\Condition;
-use Abdulelahragih\QueryBuilder\Grammar\ConditionsClause;
-use Abdulelahragih\QueryBuilder\Grammar\ConditionsGroup;
-use Abdulelahragih\QueryBuilder\Grammar\Conjunction;
-use Abdulelahragih\QueryBuilder\Grammar\JoinClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\Condition;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\ConditionsClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\ConditionsGroup;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\Conjunction;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\JoinClause;
 use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 use Abdulelahragih\QueryBuilder\Types\JoinType;
 use Closure;

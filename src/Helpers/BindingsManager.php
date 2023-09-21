@@ -29,4 +29,9 @@ class BindingsManager
     {
         return $this->placeholders;
     }
+
+    public function getBindingsOrNull(): ?array
+    {
+        return empty($this->placeholders) ? null : $this->placeholders;
+    }
 }
