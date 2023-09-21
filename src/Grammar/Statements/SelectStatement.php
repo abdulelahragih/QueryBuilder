@@ -3,17 +3,17 @@ declare(strict_types=1);
 
 namespace Abdulelahragih\QueryBuilder\Grammar\Statements;
 
-use Abdulelahragih\QueryBuilder\Grammar\Clauses\Clause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\FromClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\JoinClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\LimitClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OffsetClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\WhereClause;
+use Abdulelahragih\QueryBuilder\Traits\CanBuildClause;
 
 class SelectStatement implements Statement
 {
-
+    use CanBuildClause;
     private bool $distinct = false;
 
     /**
@@ -65,26 +65,5 @@ class SelectStatement implements Statement
             $this->buildOrEmpty($this->limitClause) .
             $this->buildOrEmpty($this->offsetClause) .
             $this->buildOrEmpty($this->orderByClause);
-    }
-
-    private function buildOrEmpty(null|Clause|array $clause): string
-    {
-        if (is_null($clause)) {
-            return '';
-        }
-
-        if (is_array($clause)) {
-            if (empty($clause)) {
-                return '';
-            }
-
-            $builtClause = '';
-            foreach ($clause as $item) {
-                $builtClause .= $item->build() . "\n";
-            }
-            return ' ' . trim($builtClause);
-        }
-        $builtClause = $clause->build();
-        return empty($builtClause) ? '' : ' ' . $builtClause;
     }
 }

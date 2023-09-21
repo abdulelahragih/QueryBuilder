@@ -6,10 +6,11 @@ namespace Abdulelahragih\QueryBuilder\Grammar\Statements;
 use Abdulelahragih\QueryBuilder\Data\QueryBuilderException;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\Clause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\WhereClause;
-use InvalidArgumentException;
+use Abdulelahragih\QueryBuilder\Traits\CanBuildClause;
 
 class UpdateStatement implements Clause
 {
+    use CanBuildClause;
 
     /**
      * @param string $table
@@ -45,7 +46,7 @@ class UpdateStatement implements Clause
             if (!$this->forceUpdate) {
                 throw new QueryBuilderException(
                     QueryBuilderException::DANGEROUS_QUERY,
-                    'Update statement without where clause is not allowed. Use setForceUpdate(true) to force update.');
+                    'Update statement without where clause is not allowed. Use force(true) to force update.');
             }
         }
         return 'UPDATE ' . $this->table . ' SET ' .
@@ -59,26 +60,5 @@ class UpdateStatement implements Clause
         return implode(', ', array_map(function ($column, $value) {
             return $column . ' = ' . $value;
         }, array_keys($columnsToValues), $columnsToValues));
-    }
-
-    private function buildOrEmpty(null|Clause|array $clause): string
-    {
-        if (is_null($clause)) {
-            return '';
-        }
-
-        if (is_array($clause)) {
-            if (empty($clause)) {
-                return '';
-            }
-
-            $builtClause = '';
-            foreach ($clause as $item) {
-                $builtClause .= $item->build() . "\n";
-            }
-            return ' ' . trim($builtClause);
-        }
-        $builtClause = $clause->build();
-        return empty($builtClause) ? '' : ' ' . $builtClause;
     }
 }
