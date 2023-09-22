@@ -18,6 +18,7 @@ class QueryBuilderException extends Exception
     const MISSING_TABLE = 2000;
     const MISSING_COLUMNS = 2001;
     const DANGEROUS_QUERY = 2002;
+    const INVALID_QUERY = 2004;
 
     public function __construct(int $errorCode, string $message = '')
     {
