@@ -15,21 +15,21 @@ class QueryBuilderTest extends TestCase
     public function testSimpleSelect()
     {
         $query = (new QueryBuilder($this->pdo))
-            ->table('user')
+            ->table('users')
             ->select('id', 'name')
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM user;', $query);
+        $this->assertEquals('SELECT id, name FROM users;', $query);
     }
 
     public function testSimpleWhere()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->select('id', 'name')
             ->where('id', '=', 1)
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM user WHERE id = :v1;', $query);
+        $this->assertEquals('SELECT id, name FROM users WHERE id = :v1;', $query);
         $this->assertContains(1, $builder->getValues());
     }
 
@@ -37,12 +37,12 @@ class QueryBuilderTest extends TestCase
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->select('id', 'name')
             ->where('id', '=', 1)
             ->where('name', '=', 'Sam')
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM user WHERE id = :v1 AND name = :v2;', $query);
+        $this->assertEquals('SELECT id, name FROM users WHERE id = :v1 AND name = :v2;', $query);
         $this->assertContains(1, $builder->getValues());
         $this->assertContains('Sam', $builder->getValues());
     }
@@ -51,7 +51,7 @@ class QueryBuilderTest extends TestCase
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->select('id', 'name')
             ->where('id', '=', 1)
             ->orWhere(function (WhereQueryBuilder $builder) {
@@ -59,7 +59,7 @@ class QueryBuilderTest extends TestCase
                 $builder->where('name', '=', 'Sam');
             })
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM user WHERE id = :v1 OR (id = :v2 AND name = :v3);', $query);
+        $this->assertEquals('SELECT id, name FROM users WHERE id = :v1 OR (id = :v2 AND name = :v3);', $query);
         $this->assertContains(1, $builder->getValues());
         $this->assertContains(2, $builder->getValues());
         $this->assertContains('Sam', $builder->getValues());
@@ -69,7 +69,7 @@ class QueryBuilderTest extends TestCase
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->select('id', 'name')
             ->where('id', '=', 1)
             ->orWhere(function (WhereQueryBuilder $builder) {
@@ -81,7 +81,7 @@ class QueryBuilderTest extends TestCase
                 });
             })
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM user WHERE id = :v1 OR (id = :v2 AND name = :v3 AND (id = :v4 OR name = :v5));', $query);
+        $this->assertEquals('SELECT id, name FROM users WHERE id = :v1 OR (id = :v2 AND name = :v3 AND (id = :v4 OR name = :v5));', $query);
         $this->assertContains(1, $builder->getValues());
         $this->assertContains(2, $builder->getValues());
         $this->assertContains('Sam', $builder->getValues());
@@ -93,10 +93,10 @@ class QueryBuilderTest extends TestCase
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->whereIn('id', [1, 2, 3, 4, 5])
             ->toSql();
-        $this->assertEquals('SELECT * FROM user WHERE id IN (:v1, :v2, :v3, :v4, :v5);', $query);
+        $this->assertEquals('SELECT * FROM users WHERE id IN (:v1, :v2, :v3, :v4, :v5);', $query);
         $this->assertEquals([1, 2, 3, 4, 5], $builder->getValues());
     }
 
@@ -104,10 +104,10 @@ class QueryBuilderTest extends TestCase
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->whereNotIn('id', [1, 2, 3, 4, 5])
             ->toSql();
-        $this->assertEquals('SELECT * FROM user WHERE id NOT IN (:v1, :v2, :v3, :v4, :v5);', $query);
+        $this->assertEquals('SELECT * FROM users WHERE id NOT IN (:v1, :v2, :v3, :v4, :v5);', $query);
         $this->assertEquals([1, 2, 3, 4, 5], $builder->getValues());
     }
 
@@ -115,10 +115,10 @@ class QueryBuilderTest extends TestCase
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->whereLike('name', 'Sam')
             ->toSql();
-        $this->assertEquals('SELECT * FROM user WHERE name LIKE :v1;', $query);
+        $this->assertEquals('SELECT * FROM users WHERE name LIKE :v1;', $query);
         $this->assertEquals('Sam', $builder->getValues()[0]);
     }
 
@@ -126,10 +126,10 @@ class QueryBuilderTest extends TestCase
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->whereNotLike('name', 'Sam')
             ->toSql();
-        $this->assertEquals('SELECT * FROM user WHERE name NOT LIKE :v1;', $query);
+        $this->assertEquals('SELECT * FROM users WHERE name NOT LIKE :v1;', $query);
         $this->assertEquals('Sam', $builder->getValues()[0]);
     }
 
@@ -137,10 +137,10 @@ class QueryBuilderTest extends TestCase
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->whereLike('name', '%Sam%')
             ->toSql();
-        $this->assertEquals('SELECT * FROM user WHERE name LIKE :v1;', $query);
+        $this->assertEquals('SELECT * FROM users WHERE name LIKE :v1;', $query);
         $this->assertEquals('%Sam%', $builder->getValues()[0]);
     }
 
@@ -148,30 +148,30 @@ class QueryBuilderTest extends TestCase
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->whereNull('name')
             ->toSql();
-        $this->assertEquals('SELECT * FROM user WHERE name IS NULL;', $query);
+        $this->assertEquals('SELECT * FROM users WHERE name IS NULL;', $query);
     }
 
     public function testWhereNotNull()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->whereNotNull('name')
             ->toSql();
-        $this->assertEquals('SELECT * FROM user WHERE name IS NOT NULL;', $query);
+        $this->assertEquals('SELECT * FROM users WHERE name IS NOT NULL;', $query);
     }
 
     public function testWhereBetween()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->whereBetween('id', 1, 10)
             ->toSql();
-        $this->assertEquals('SELECT * FROM user WHERE id BETWEEN :v1 AND :v2;', $query);
+        $this->assertEquals('SELECT * FROM users WHERE id BETWEEN :v1 AND :v2;', $query);
         $this->assertEquals(1, $builder->getValues()[0]);
         $this->assertEquals(10, $builder->getValues()[1]);
     }
@@ -180,10 +180,10 @@ class QueryBuilderTest extends TestCase
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->whereNotBetween('id', 1, 10)
             ->toSql();
-        $this->assertEquals('SELECT * FROM user WHERE id NOT BETWEEN :v1 AND :v2;', $query);
+        $this->assertEquals('SELECT * FROM users WHERE id NOT BETWEEN :v1 AND :v2;', $query);
         $this->assertEquals(1, $builder->getValues()[0]);
         $this->assertEquals(10, $builder->getValues()[1]);
     }
@@ -192,95 +192,95 @@ class QueryBuilderTest extends TestCase
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->select('id', 'name')
             ->orderBy(['id', 'name'])
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM user ORDER BY id, name ASC;', $query);
+        $this->assertEquals('SELECT id, name FROM users ORDER BY id, name ASC;', $query);
     }
 
     public function testOrderByDescending()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->select('id', 'name')
             ->orderBy(['id', 'name'], 'DESC')
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM user ORDER BY id, name DESC;', $query);
+        $this->assertEquals('SELECT id, name FROM users ORDER BY id, name DESC;', $query);
     }
 
     public function testLimit()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->select('id', 'name')
             ->limit(10)
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM user LIMIT 10;', $query);
+        $this->assertEquals('SELECT id, name FROM users LIMIT 10;', $query);
     }
 
     public function testOffset()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->select('id', 'name')
             ->offset(10)
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM user OFFSET 10;', $query);
+        $this->assertEquals('SELECT id, name FROM users OFFSET 10;', $query);
     }
 
     public function testLimitAndOffset()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->select('id', 'name')
             ->limit(10)
             ->offset(10)
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM user LIMIT 10 OFFSET 10;', $query);
+        $this->assertEquals('SELECT id, name FROM users LIMIT 10 OFFSET 10;', $query);
     }
 
     public function testInnerJoin()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
-            ->join('images', 'images.user_id', '=', 'user.id')
+            ->table('users')
+            ->join('images', 'images.user_id', '=', 'users.id')
             ->toSql();
-        $this->assertEquals('SELECT * FROM user INNER JOIN images ON images.user_id = user.id;', $query);
+        $this->assertEquals('SELECT * FROM users INNER JOIN images ON images.user_id = users.id;', $query);
     }
 
     public function testLeftJoin()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
-            ->leftJoin('images', 'images.user_id', '=', 'user.id')
+            ->table('users')
+            ->leftJoin('images', 'images.user_id', '=', 'users.id')
             ->toSql();
-        $this->assertEquals('SELECT * FROM user LEFT JOIN images ON images.user_id = user.id;', $query);
+        $this->assertEquals('SELECT * FROM users LEFT JOIN images ON images.user_id = users.id;', $query);
     }
 
     public function testRightJoin()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
-            ->rightJoin('images', 'images.user_id', '=', 'user.id')
+            ->table('users')
+            ->rightJoin('images', 'images.user_id', '=', 'users.id')
             ->toSql();
-        $this->assertEquals('SELECT * FROM user RIGHT JOIN images ON images.user_id = user.id;', $query);
+        $this->assertEquals('SELECT * FROM users RIGHT JOIN images ON images.user_id = users.id;', $query);
     }
 
     public function testNestedJoinConditions()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
-            ->table('user')
+            ->table('users')
             ->join('images', function (JoinClauseBuilder $builder) {
-                $builder->on('images.user_id', '=', 'user.id');
+                $builder->on('images.user_id', '=', 'users.id');
                 $builder->orWhere('images.user_id', '=', 1);
                 $builder->where(function (JoinClauseBuilder $builder) {
                     $builder->where('images.user_id', '=', 3);
@@ -288,24 +288,101 @@ class QueryBuilderTest extends TestCase
                 });
             })
             ->toSql();
-        $this->assertEquals('SELECT * FROM user INNER JOIN images ON images.user_id = user.id OR ' .
+        $this->assertEquals('SELECT * FROM users INNER JOIN images ON images.user_id = users.id OR ' .
             'images.user_id = :v1 AND (images.user_id = :v2 OR images.id = :v3);', $query);
     }
 
-    public function testFirst() {
+    public function testFirst()
+    {
         $builder = new QueryBuilder($this->pdo);
         $result = $builder
-            ->table('user')
+            ->table('users')
             ->first('id');
         $this->assertEquals(1, $result);
     }
 
-    public function testPluck() {
+    public function testPluck()
+    {
         $builder = new QueryBuilder($this->pdo);
         $result = $builder
-            ->table('user')
+            ->table('users')
             ->limit(3)
             ->pluck('id');
         $this->assertEquals([1, 2, 3], $result);
+    }
+
+    public function testSingleInsert()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        $builder
+            ->table('users')
+            ->insert(
+                [
+                    'id' => 100,
+                    'name' => 'John'
+                ],
+                $query);
+        $this->assertEquals('INSERT INTO users (id, name) VALUES (:v1, :v2);', $query);
+        $name = $builder->table('users')->where('id', '=', 100)->first('name');
+        $this->assertEquals('John', $name);
+    }
+
+    public function testMultipleInsert()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        $builder
+            ->table('users')
+            ->insert(
+                [
+                    [
+                        'id' => 100,
+                        'name' => 'John'
+                    ],
+                    [
+                        'id' => 101,
+                        'name' => 'Jane'
+                    ]
+                ],
+                $query);
+        $this->assertEquals('INSERT INTO users (id, name) VALUES (:v1, :v2), (:v3, :v4);', $query);
+        $name = $builder->table('users')->where('id', '=', 100)->first('name');
+        $this->assertEquals('John', $name);
+        $name = $builder->table('users')->where('id', '=', 101)->first('name');
+        $this->assertEquals('Jane', $name);
+    }
+
+    public function testUpdate()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        $builder
+            ->table('users')
+            ->where('id', '=', 1)
+            ->update(
+                [
+                    'name' => 'Sarah'
+                ],
+                $query);
+        $this->assertEquals('UPDATE users SET name = :v2 WHERE id = :v1;', $query);
+        $name = $builder->table('users')->where('id', '=', 1)->first('name');
+        $this->assertEquals('Sarah', $name);
+    }
+
+    public function testDelete()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        $builder
+            ->table('users')
+            ->where('id', '=', 1)
+            ->orWhere('id', '=', 2)
+            ->delete($query);
+        $this->assertEquals('DELETE FROM users WHERE id = :v1 OR id = :v2;', $query);
+        $name = $builder->table('users')->where('id', '=', 1)->first('name');
+        $this->assertNull($name);
+        $name = $builder->table('users')->where('id', '=', 2)->first('name');
+        $this->assertNull($name);
     }
 }

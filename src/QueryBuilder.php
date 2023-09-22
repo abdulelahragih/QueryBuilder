@@ -142,16 +142,6 @@ class QueryBuilder
         );
     }
 
-    private function buildUpdateStatement()
-    {
-        // TODO implement
-    }
-
-    private function buildDeleteStatement()
-    {
-        // TODO implement
-    }
-
     private function buildPaginatedQuery(): string
     {
         if (empty($this->fromClause)) {
@@ -180,10 +170,13 @@ class QueryBuilder
      * @returns int the number of affected rows or null on failure
      * @throws QueryBuilderException
      */
-    public function update(array $columnsToValues): ?int
+    public function update(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
         // convert values to place holder
         $columnsToValues = array_map(function ($value) {
+            if (is_array($value)) {
+                throw new QueryBuilderException(QueryBuilderException::INVALID_QUERY, 'Value cannot be an array');
+            }
             return $this->bindingsManager->add($value);
         }, $columnsToValues);
         $updateStatement = new UpdateStatement(
@@ -193,6 +186,7 @@ class QueryBuilder
             $this->whereQueryBuilder->getWhereClause()
         );
         $query = $updateStatement->build() . $this->queryEndMarker();
+        $resultedSql = $query;
         $statement = $this->pdo->prepare($query);
         if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
             return null;
@@ -201,7 +195,7 @@ class QueryBuilder
         return $statement->rowCount();
     }
 
-    public function delete(): ?int
+    public function delete(?string &$resultedSql = null): ?int
     {
         $deleteStatement = new DeleteStatement(
             $this->fromClause->table,
@@ -209,6 +203,7 @@ class QueryBuilder
             $this->whereQueryBuilder->getWhereClause()
         );
         $query = $deleteStatement->build() . $this->queryEndMarker();
+        $resultedSql = $query;
         $statement = $this->pdo->prepare($query);
         if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
             return null;
@@ -221,9 +216,9 @@ class QueryBuilder
      * @param array $columnsToValues an associative array of columns to values to be inserted
      * @returns int the number of inserted rows or null on failure
      */
-    public function insert(array $columnsToValues): ?int
+    public function insert(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
-        if (!empty($columnsToValues) && is_array($columnsToValues[0])) {
+        if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
             // $columnsToValues is an array of arrays (multiple rows)
             $columns = array_keys($columnsToValues[0]);
             $values = array_map(function ($row) {
@@ -246,6 +241,7 @@ class QueryBuilder
             $values
         );
         $query = $insertStatement->build() . $this->queryEndMarker();
+        $resultedSql = $query;
         $statement = $this->pdo->prepare($query);
         if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
             return null;
