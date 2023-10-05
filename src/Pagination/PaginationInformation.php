@@ -158,20 +158,6 @@ class PaginationInformation implements JsonSerializable
         return $this->offset;
     }
 
-    public function jsonSerialize(): array
-    {
-        return [
-            "total" => $this->total,
-            "perPage" => $this->perPage,
-            "from" => $this->start,
-            "to" => $this->end,
-            "pages" => $this->pages,
-            "currentPage" => $this->currentPage,
-            "previousPage" => $this->currentPage > $this->pages + 1 ? $this->pages : $this->previousPage,
-            "nextPage" => $this->nextPage
-        ];
-    }
-
     public static function emptyPagination(int $limit): PaginationInformation
     {
         return new PaginationInformation(0, 0, 0, $limit, 0, 1, 1, null, null);
@@ -211,5 +197,24 @@ class PaginationInformation implements JsonSerializable
     public function __toString(): string
     {
         return json_encode($this->jsonSerialize());
+    }
+
+    public function toArray(): array
+    {
+        return [
+            "total" => $this->total,
+            "perPage" => $this->perPage,
+            "from" => $this->start,
+            "to" => $this->end,
+            "pages" => $this->pages,
+            "currentPage" => $this->currentPage,
+            "previousPage" => $this->currentPage > $this->pages + 1 ? $this->pages : $this->previousPage,
+            "nextPage" => $this->nextPage
+        ];
+    }
+
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 }
