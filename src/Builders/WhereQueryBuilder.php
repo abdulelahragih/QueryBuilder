@@ -22,7 +22,7 @@ class WhereQueryBuilder
     // private api
     public function __call(string $name, array $arguments)
     {
-        if($name === 'getWhereClause') {
+        if ($name === 'getWhereClause') {
             return $this->whereClause;
         }
         throw new InvalidArgumentException('Method ' . $name . ' does not exist');
@@ -109,6 +109,9 @@ class WhereQueryBuilder
         bool   $and = true
     ): self
     {
+        if (empty($values)) {
+            return $this;
+        }
         $placeholders = [];
         foreach ($values as $value) {
             $placeholder = $this->bindingsManager->add($value);
@@ -130,6 +133,9 @@ class WhereQueryBuilder
         bool   $and = true
     ): self
     {
+        if (empty($values)) {
+            return $this;
+        }
         $placeholders = [];
         foreach ($values as $value) {
             $placeholder = $this->bindingsManager->add($value);

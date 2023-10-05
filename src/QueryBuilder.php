@@ -18,8 +18,8 @@ use Abdulelahragih\QueryBuilder\Grammar\Statements\InsertStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\SelectStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\UpdateStatement;
 use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
-use Abdulelahragih\QueryBuilder\Pagination\PaginatedResult;
-use Abdulelahragih\QueryBuilder\Pagination\PaginationInformation;
+use Abdulelahragih\QueryBuilder\Pagination\LengthAwarePaginator;
+use Abdulelahragih\QueryBuilder\Pagination\Paginator;
 use Abdulelahragih\QueryBuilder\Types\JoinType;
 use Abdulelahragih\QueryBuilder\Types\OrderType;
 use Closure;
@@ -84,16 +84,16 @@ class QueryBuilder
         return Collection::make($items);
     }
 
-    public function paginate(int $page, int $limit): PaginatedResult
+    public function paginate(int $page, int $perPage, string $pageName = 'page'): LengthAwarePaginator
     {
-        $this->offsetClause = new OffsetClause(($page - 1) * $limit);
+        $this->offsetClause = new OffsetClause(($page - 1) * $perPage);
         if (!isset($this->limitClause)) {
-            $this->limitClause = new LimitClause($limit);
+            $this->limitClause = new LimitClause($perPage);
         }
         $query = $this->buildPaginatedQuery();
         $statement = $this->pdo->prepare($query);
         if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return PaginatedResult::empty($limit);
+            return LengthAwarePaginator::empty($perPage);
         }
         $items = $statement->fetchAll(PDO::FETCH_ASSOC);
         if (isset($this->objConverter)) {
@@ -104,7 +104,26 @@ class QueryBuilder
         $statement->execute($this->bindingsManager->getBindingsOrNull());
         $total = (int)$statement->fetchColumn();
         $this->resetBuilderState();
-        return new PaginatedResult(Collection::make($items), PaginationInformation::calculateFrom($total, $limit, $page));
+        return (new LengthAwarePaginator($items, $page, $perPage, $total))->setPageName($pageName);
+    }
+
+    public function simplePaginate(int $page, int $perPage, string $pageName = 'page'): Paginator
+    {
+        $this->offsetClause = new OffsetClause(($page - 1) * $perPage);
+        if (!isset($this->limitClause)) {
+            $this->limitClause = new LimitClause($perPage);
+        }
+        $query = $this->buildPaginatedQuery();
+        $statement = $this->pdo->prepare($query);
+        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+            return Paginator::empty($perPage);
+        }
+        $items = $statement->fetchAll(PDO::FETCH_ASSOC);
+        if (isset($this->objConverter)) {
+            $items = array_map($this->objConverter, $items);
+        }
+        $this->resetBuilderState();
+        return (new Paginator($items, $page, $perPage))->setPageName($pageName);
     }
 
     /**
