@@ -48,7 +48,7 @@ class LengthAwarePaginator extends AbstractPaginator implements JsonSerializable
         return $currentPage < $totalPages;
     }
 
-    public function toArray()
+    public function toArray(): array
     {
         return [
             'data' => $this->items(),
@@ -56,9 +56,9 @@ class LengthAwarePaginator extends AbstractPaginator implements JsonSerializable
         ];
     }
 
-    public function getPaginationInfo(): array
+    public function getPaginationInfo(): PaginationInformation
     {
-        return $this->paginationInfo->toArray();
+        return $this->paginationInfo;
     }
 
 
