@@ -26,6 +26,7 @@ class Paginator extends AbstractPaginator implements JsonSerializable, ArrayAcce
         $this->setItems($items);
         $this->perPage = $perPage;
         $this->currentPage = $currentPage;
+        $this->hasMore = $this->items->count() >= $perPage;
     }
 
     protected function setItems(array|Collection $items): void
