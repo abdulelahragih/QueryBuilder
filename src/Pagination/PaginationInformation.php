@@ -163,37 +163,6 @@ class PaginationInformation implements JsonSerializable
         return new PaginationInformation(0, 0, 0, $limit, 0, 1, 1, null, null);
     }
 
-    public function mergeWith(PaginationInformation $paginationInformation): self
-    {
-        return new self(
-            $this->getTotal() + $paginationInformation->getTotal(),
-            $this->getMergedLowerBound($this->getStart(), $paginationInformation->getStart()),
-            $this->getMergedUpperBound($this->getEnd(), $paginationInformation->getEnd()),
-            $this->getPerPage() + $paginationInformation->getPerPage(),
-            0,
-            max($this->getPages(), $paginationInformation->getPages()),
-            $this->getMergedUpperBound($this->getCurrentPage(), $paginationInformation->getCurrentPage()),
-            $this->getMergedLowerBound($this->getPreviousPage(), $paginationInformation->getPreviousPage()),
-            $this->getMergedUpperBound($this->getNextPage(), $paginationInformation->getNextPage()),
-        );
-    }
-
-    private function getMergedLowerBound(?int $value1, ?int $value2): ?int
-    {
-        if (isset($value1) && isset($value2)) {
-            return min($value1, $value2);
-        }
-        return $value1 ?? $value2;
-    }
-
-    private function getMergedUpperBound(?int $value1, ?int $value2): ?int
-    {
-        if (isset($value1) && isset($value2)) {
-            return max($value1, $value2);
-        }
-        return $value1 ?? $value2;
-    }
-
     public function __toString(): string
     {
         return json_encode($this->jsonSerialize());
