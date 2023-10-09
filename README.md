@@ -28,7 +28,7 @@ $result = $qb->table('users')
 ```
 
 ## Select with pagination
-To paginate the result you can use the paginate method: <br> You can either use the `paginate` method or the `simplePaginate` method. 
+You can either use the `paginate` method or the `simplePaginate` method. 
 
 `paginate` will return a `LengthAwarePaginator` instance which contains the total number of items, the current page, the number of items per page, the total number of pages, and the number of next and previous pages. <br>
 ```php
@@ -51,7 +51,7 @@ You can add nested conditions to the Where clause by passing a closure to the `w
 $result = $qb->table('users')
    ->select('id', 'username', 'phone_number', 'gender')
    ->where(function ($builder) {
-       $query->where('role_id', '=', 1)
+       $builder->where('role_id', '=', 1)
            ->orWhere('role_id', '=', 2); 
    })
    ->get()
