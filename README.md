@@ -14,7 +14,7 @@ The recommended way to install the QueryBuilder is through [Composer](http://get
 composer require abdulelahragih/querybuilder
 ```
 
-## Usage
+## Basic Usage
 To start using it you have to first create an instance of the QueryBuilder:
 ```php
 $pdo = # your pdo connection
@@ -23,17 +23,57 @@ $qb = new \Abdulelahragih\QueryBuilder\QueryBuilder($pdo)
 $result = $qb->table('users')
    ->select('id', 'username', 'phone_number', 'gender')
    ->where('role_id', '=', 1)
-   ->get() # This will return the result as an array
+   ->join('images', 'images.user_id', '=', 'users.id')
+   ->get()
+```
+
+## Select with pagination
+To paginate the result you can use the paginate method: <br> You can either use the `paginate` method or the `simplePaginate` method. 
+
+`paginate` will return a `LengthAwarePaginator` instance which contains the total number of items, the current page, the number of items per page, the total number of pages, and the number of next and previous pages. <br>
+```php
+$paginator = $qb->table('users')
+   ->select('id', 'username', 'phone_number', 'gender')
+   ->where('role_id', '=', 1)
+   ->paginate($page, $limit)
+```
+`simplePaginate` will return a `Paginator` instance which contains the current page, the number of items per page, and the number of next and previous pages. <br>
+```php
+$paginator = $qb->table('users')
+   ->select('id', 'username', 'phone_number', 'gender')
+   ->where('role_id', '=', 1)
+   ->simplePaginate($page, $limit)
+```
+
+## Nested Where
+You can add nested conditions to the Where clause by passing a closure to the `where` method. <br>
+```php
+$result = $qb->table('users')
+   ->select('id', 'username', 'phone_number', 'gender')
+   ->where(function ($builder) {
+       $query->where('role_id', '=', 1)
+           ->orWhere('role_id', '=', 2); 
+   })
+   ->get()
+```
+## Nested Join
+You can add nested conditions to the Join clause by passing a closure to the `join` method. <br>
+```php
+      ->join('images', function (JoinClauseBuilder $builder) {
+                $builder->on('images.user_id', '=', 'users.id');
+                   // you can use all where variants here
+                $builder->where('images.user_id', '=', 1);
+            })
 ```
 ## TODOs
 - [x] ~~Support Update, Delete, Insert~~
 - [ ] Support Creating Schemas
-- [ ] Add pluck method
+- [x] ~~Add pluck method~~
 - [ ] Add support for sub-queries inside the Where and Join clauses
-- [ ] Implement a Collection class and make it the return type of get()
+- [x] ~~Implement a Collection class and make it the return type of get()~~
 - [ ] Add a `returning` method to the query allowing you to return columns of inserted/updated row(s)
 - [ ] Add support for different types of databases and refactor code, so it is easy to do so
-- [ ] Add support for Transactions
+- [x] ~~Add support for Transactions~~
 
 ## Contribution
 Any contribution to make this project better is welcome
