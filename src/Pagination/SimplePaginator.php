@@ -8,7 +8,7 @@ use Countable;
 use IteratorAggregate;
 use JsonSerializable;
 
-class SimplePaginator extends AbstractPaginator implements JsonSerializable, ArrayAccess, Countable, IteratorAggregate
+class SimplePaginator extends Paginator implements JsonSerializable, ArrayAccess, Countable, IteratorAggregate
 {
 
     protected bool $hasMore = true;

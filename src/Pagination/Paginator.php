@@ -6,7 +6,7 @@ use Abdulelahragih\QueryBuilder\Data\Collection;
 use Exception;
 use Traversable;
 
-class AbstractPaginator
+class Paginator
 {
 
     protected Collection $items;
@@ -49,7 +49,7 @@ class AbstractPaginator
         return $this->pageName;
     }
 
-    public function setPageName(string $name): AbstractPaginator
+    public function setPageName(string $name): Paginator
     {
         $this->pageName = $name;
 
