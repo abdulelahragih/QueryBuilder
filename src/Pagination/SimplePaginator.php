@@ -8,14 +8,14 @@ use Countable;
 use IteratorAggregate;
 use JsonSerializable;
 
-class Paginator extends AbstractPaginator implements JsonSerializable, ArrayAccess, Countable, IteratorAggregate
+class SimplePaginator extends AbstractPaginator implements JsonSerializable, ArrayAccess, Countable, IteratorAggregate
 {
 
     protected bool $hasMore = true;
 
-    public static function empty(int $limit): Paginator
+    public static function empty(int $limit): SimplePaginator
     {
-        return new Paginator(Collection::make(), 1, $limit);
+        return new SimplePaginator(Collection::make(), 1, $limit);
     }
     public function __construct(
         array|Collection $items,
