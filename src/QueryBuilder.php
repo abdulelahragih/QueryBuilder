@@ -19,7 +19,7 @@ use Abdulelahragih\QueryBuilder\Grammar\Statements\SelectStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\UpdateStatement;
 use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 use Abdulelahragih\QueryBuilder\Pagination\LengthAwarePaginator;
-use Abdulelahragih\QueryBuilder\Pagination\Paginator;
+use Abdulelahragih\QueryBuilder\Pagination\SimplePaginator;
 use Abdulelahragih\QueryBuilder\Types\JoinType;
 use Abdulelahragih\QueryBuilder\Types\OrderType;
 use Closure;
@@ -107,7 +107,7 @@ class QueryBuilder
         return (new LengthAwarePaginator($items, $page, $perPage, $total))->setPageName($pageName);
     }
 
-    public function simplePaginate(int $page, int $perPage, string $pageName = 'page'): Paginator
+    public function simplePaginate(int $page, int $perPage, string $pageName = 'page'): SimplePaginator
     {
         $this->offsetClause = new OffsetClause(($page - 1) * $perPage);
         if (!isset($this->limitClause)) {
@@ -116,14 +116,14 @@ class QueryBuilder
         $query = $this->buildPaginatedQuery();
         $statement = $this->pdo->prepare($query);
         if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return Paginator::empty($perPage);
+            return SimplePaginator::empty($perPage);
         }
         $items = $statement->fetchAll(PDO::FETCH_ASSOC);
         if (isset($this->objConverter)) {
             $items = array_map($this->objConverter, $items);
         }
         $this->resetBuilderState();
-        return (new Paginator($items, $page, $perPage))->setPageName($pageName);
+        return (new SimplePaginator($items, $page, $perPage))->setPageName($pageName);
     }
 
     /**

@@ -9,7 +9,7 @@ use InvalidArgumentException;
 use IteratorAggregate;
 use JsonSerializable;
 
-class LengthAwarePaginator extends AbstractPaginator implements JsonSerializable, ArrayAccess, Countable, IteratorAggregate
+class LengthAwarePaginator extends Paginator implements JsonSerializable, ArrayAccess, Countable, IteratorAggregate
 {
 
     private int $total;

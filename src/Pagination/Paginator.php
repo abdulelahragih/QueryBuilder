@@ -3,67 +3,111 @@
 namespace Abdulelahragih\QueryBuilder\Pagination;
 
 use Abdulelahragih\QueryBuilder\Data\Collection;
-use ArrayAccess;
-use Countable;
-use IteratorAggregate;
-use JsonSerializable;
+use Exception;
+use Traversable;
 
-class Paginator extends AbstractPaginator implements JsonSerializable, ArrayAccess, Countable, IteratorAggregate
+class Paginator
 {
 
-    protected bool $hasMore = true;
+    protected Collection $items;
+    protected int $perPage;
+    protected int $currentPage;
+    protected string $pageName = 'page';
 
-    public static function empty(int $limit): Paginator
+    protected function isValidPageNumber($page): bool
     {
-        return new Paginator(Collection::make(), 1, $limit);
-    }
-    public function __construct(
-        array|Collection $items,
-        int              $currentPage,
-        int              $perPage,
-    )
-    {
-        $this->setItems($items);
-        $this->perPage = $perPage;
-        $this->currentPage = $currentPage;
-        $this->hasMore = $this->items->count() >= $perPage;
+        return $page >= 1 && filter_var($page, FILTER_VALIDATE_INT) !== false;
     }
 
-    protected function setItems(array|Collection $items): void
+    public function items(): array
     {
-        $this->items = $items instanceof Collection ? $items : Collection::make($items);
+        return $this->items->toArray();
     }
 
-    public function hasMorePages(): bool
+    public function firstItem(): ?int
     {
-        return $this->hasMore;
+        return $this->items->count() > 0 ? ($this->currentPage - 1) * $this->perPage + 1 : null;
     }
 
-    public function setHasMorePages(bool $hasMore): void
+    public function lastItem(): ?int
     {
-        $this->hasMore = $hasMore;
+        return $this->items->count() > 0 ? $this->firstItem() + $this->items->count() - 1 : null;
     }
 
-    public function toArray(): array
+    public function perPage(): int
     {
-        return [
-            'data' => $this->items(),
-            'pagination' => $this->getPaginationInfo(),
-        ];
+        return $this->perPage;
     }
 
-    public function getPaginationInfo(): array
+    public function currentPage(): int
     {
-        return [
-            'perPage' => $this->perPage(),
-            'currentPage' => $this->currentPage(),
-            'previousPage' => $this->currentPage() > 1 ? $this->currentPage() - 1 : null,
-            'nextPage' => $this->hasMorePages() ? $this->currentPage() + 1 : null,
-        ];
+        return $this->currentPage;
     }
 
-    public function jsonSerialize(): array
+    public function getPageName(): string
     {
-        return $this->toArray();
+        return $this->pageName;
+    }
+
+    public function setPageName(string $name): Paginator
+    {
+        $this->pageName = $name;
+
+        return $this;
+    }
+
+    /**
+     * @throws Exception
+     */
+    public function getIterator(): Traversable
+    {
+        return $this->items->getIterator();
+    }
+
+    public function isEmpty(): bool
+    {
+        return $this->items->isEmpty();
+    }
+
+    public function isNotEmpty(): bool
+    {
+        return $this->items->isNotEmpty();
+    }
+
+    public function count(): int
+    {
+        return $this->items->count();
+    }
+
+    public function getCollection(): Collection
+    {
+        return $this->items;
+    }
+
+    public function setCollection(Collection $collection): static
+    {
+        $this->items = $collection;
+
+        return $this;
+    }
+
+    public function offsetExists($key): bool
+    {
+        return $this->items->offsetExists($key);
+    }
+
+    public function offsetGet($key)
+    {
+        return $this->items->offsetGet($key);
+    }
+
+    public function offsetSet($key, $value): void
+    {
+        $this->items->offsetSet($key, $value);
+    }
+
+    public function offsetUnset($key): void
+    {
+        $this->items->offsetUnset($key);
     }
 }
