@@ -14,6 +14,7 @@ use Abdulelahragih\QueryBuilder\Traits\CanBuildClause;
 class SelectStatement implements Statement
 {
     use CanBuildClause;
+
     private bool $distinct = false;
 
     /**
@@ -62,8 +63,8 @@ class SelectStatement implements Statement
             $this->buildOrEmpty($this->fromClause) .
             $this->buildOrEmpty($this->joinClause) .
             $this->buildOrEmpty($this->whereClause) .
+            $this->buildOrEmpty($this->orderByClause) .
             $this->buildOrEmpty($this->limitClause) .
-            $this->buildOrEmpty($this->offsetClause) .
-            $this->buildOrEmpty($this->orderByClause);
+            $this->buildOrEmpty($this->offsetClause);
     }
 }
