@@ -74,7 +74,7 @@ class QueryBuilder
         $query = $this->buildQuery();
         $statement = $this->pdo->prepare($query);
         if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return throw new QueryBuilderException(QueryBuilderException::EXECUTE_ERROR, 'Error executing the query');
+            throw new QueryBuilderException(QueryBuilderException::EXECUTE_ERROR, 'Error executing the query');
         }
         $items = $statement->fetchAll(PDO::FETCH_ASSOC);
         if (isset($this->objConverter)) {
