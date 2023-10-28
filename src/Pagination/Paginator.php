@@ -96,7 +96,7 @@ class Paginator
         return $this->items->offsetExists($key);
     }
 
-    public function offsetGet($key)
+    public function offsetGet($key): mixed
     {
         return $this->items->offsetGet($key);
     }
