@@ -194,9 +194,10 @@ class QueryBuilderTest extends TestCase
         $query = $builder
             ->table('users')
             ->select('id', 'name')
-            ->orderBy(['id', 'name'])
+            ->orderBy('id')
+            ->orderBy('name')
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM users ORDER BY id, name ASC;', $query);
+        $this->assertEquals('SELECT id, name FROM users ORDER BY id ASC, name ASC;', $query);
     }
 
     public function testOrderByDescending()
@@ -205,9 +206,21 @@ class QueryBuilderTest extends TestCase
         $query = $builder
             ->table('users')
             ->select('id', 'name')
-            ->orderBy(['id', 'name'], 'DESC')
+            ->orderByDesc('id')
+            ->orderByDesc('name')
             ->toSql();
-        $this->assertEquals('SELECT id, name FROM users ORDER BY id, name DESC;', $query);
+        $this->assertEquals('SELECT id, name FROM users ORDER BY id DESC, name DESC;', $query);
+    }
+
+    public function testMixedOrder() {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->select('id', 'name')
+            ->orderBy('id')
+            ->orderByDesc('name')
+            ->toSql();
+        $this->assertEquals('SELECT id, name FROM users ORDER BY id ASC, name DESC;', $query);
     }
 
     public function testLimit()

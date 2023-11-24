@@ -281,12 +281,24 @@ class QueryBuilder
     /**
      * @throws QueryBuilderException
      */
-    public function orderBy(array $columns, string $type = 'ASC'): self
+    public function orderBy(string $column, string $type = 'ASC'): self
     {
         if (!OrderType::contains($type)) {
             throw new QueryBuilderException(QueryBuilderException::INVALID_ORDER_TYPE, 'Invalid order type ' . $type);
         }
-        $this->orderByClause = new OrderByClause($columns, OrderType::from($type));
+        if (!isset($this->orderByClause)) {
+            $this->orderByClause = new OrderByClause();
+        }
+        $this->orderByClause->addColumn($column, OrderType::from($type));
+        return $this;
+    }
+
+    public function orderByDesc(string $column): self
+    {
+        if (!isset($this->orderByClause)) {
+            $this->orderByClause = new OrderByClause();
+        }
+        $this->orderByClause->addColumn($column, OrderType::Descending);
         return $this;
     }
 

@@ -7,25 +7,26 @@ use Abdulelahragih\QueryBuilder\Types\OrderType;
 class OrderByClause implements Clause
 {
 
-    private readonly array $columns;
-    private readonly OrderType $orderType;
+    private array $columnsToOrderType;
 
-    /**
-     * @param array $columns
-     * @param OrderType $orderType
-     */
-    public function __construct(array $columns, OrderType $orderType = OrderType::Ascending)
+    public function __construct()
     {
-        $this->columns = $columns;
-        $this->orderType = $orderType;
+        $this->columnsToOrderType = [];
+    }
+
+    public function addColumn(string $name, OrderType $orderType): void
+    {
+        $this->columnsToOrderType[$name] = $orderType;
     }
 
 
     public function build(): string
     {
-        if (empty($this->columns)) {
+        if (empty($this->columnsToOrderType)) {
             return '';
         }
-        return 'ORDER BY ' . implode(', ', $this->columns) . ' ' . $this->orderType->value;
+        return 'ORDER BY ' . implode(', ', array_map(function (string $name, OrderType $orderType) {
+                return $name . ' ' . $orderType->value;
+            }, array_keys($this->columnsToOrderType), $this->columnsToOrderType));
     }
 }
