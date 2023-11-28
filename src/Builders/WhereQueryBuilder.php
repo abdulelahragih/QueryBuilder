@@ -110,6 +110,7 @@ class WhereQueryBuilder
     ): self
     {
         if (empty($values)) {
+            $this->addEmptyWhereIn($column, $values, $and);
             return $this;
         }
         $placeholders = [];
@@ -125,6 +126,21 @@ class WhereQueryBuilder
         );
         $this->whereClause->addCondition($condition);
         return $this;
+    }
+
+    private function addEmptyWhereIn(
+        string $column,
+        array  $values,
+        bool   $and = true
+    ): void
+    {
+        $condition = new Condition(
+            1,
+            '=',
+            0,
+            $and ? Conjunction::AND() : Conjunction::OR()
+        );
+        $this->whereClause->addCondition($condition);
     }
 
     public function whereNotIn(

@@ -398,4 +398,13 @@ class QueryBuilderTest extends TestCase
         $name = $builder->table('users')->where('id', '=', 2)->first('name');
         $this->assertNull($name);
     }
+
+    public function testEmptyWhereIn() {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->whereIn('id', [])
+            ->toSql();
+        $this->assertEquals('SELECT * FROM users WHERE 1 = 0;', $query);
+    }
 }

@@ -24,7 +24,7 @@ $result = $qb->table('users')
    ->select('id', 'username', 'phone_number', 'gender')
    ->where('role_id', '=', 1)
    ->join('images', 'images.user_id', '=', 'users.id')
-   ->get()
+   ->get();
 ```
 
 ## Select with pagination
@@ -35,14 +35,14 @@ You can either use the `paginate` method or the `simplePaginate` method.
 $paginator = $qb->table('users')
    ->select('id', 'username', 'phone_number', 'gender')
    ->where('role_id', '=', 1)
-   ->paginate($page, $limit)
+   ->paginate($page, $limit);
 ```
 `simplePaginate` will return a `Paginator` instance which contains the current page, the number of items per page, and the number of next and previous pages. <br>
 ```php
 $paginator = $qb->table('users')
    ->select('id', 'username', 'phone_number', 'gender')
    ->where('role_id', '=', 1)
-   ->simplePaginate($page, $limit)
+   ->simplePaginate($page, $limit);
 ```
 
 ## Nested Where
@@ -54,16 +54,18 @@ $result = $qb->table('users')
        $builder->where('role_id', '=', 1)
            ->orWhere('role_id', '=', 2); 
    })
-   ->get()
+   ->get();
 ```
 ## Nested Join
 You can add nested conditions to the Join clause by passing a closure to the `join` method. <br>
 ```php
-      ->join('images', function (JoinClauseBuilder $builder) {
-                $builder->on('images.user_id', '=', 'users.id');
-                   // you can use all where variants here
-                $builder->where('images.user_id', '=', 1);
-            })
+$result = $qb->table('users')
+    ->join('images', function (JoinClauseBuilder $builder) {
+        $builder->on('images.user_id', '=', 'users.id');
+        // you can use all where variants here
+        $builder->where('images.user_id', '=', 1);
+    })
+    ->get();
 ```
 ## TODOs
 - [x] ~~Support Update, Delete, Insert~~
