@@ -15,8 +15,6 @@ class SelectStatement implements Statement
 {
     use CanBuildClause;
 
-    private bool $distinct = false;
-
     /**
      * @param FromClause|null $fromClause
      * @param array|null $columns
@@ -34,13 +32,9 @@ class SelectStatement implements Statement
         private readonly ?LimitClause   $limitClause = null,
         private readonly ?OffsetClause  $offsetClause = null,
         private readonly ?OrderByClause $orderByClause = null,
+        private readonly bool $distinct = false
     )
     {
-    }
-
-    public function setDistinct(bool $distinct): void
-    {
-        $this->distinct = $distinct;
     }
 
     /**

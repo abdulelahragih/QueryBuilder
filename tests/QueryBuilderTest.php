@@ -407,4 +407,16 @@ class QueryBuilderTest extends TestCase
             ->toSql();
         $this->assertEquals('SELECT * FROM users WHERE 1 = 0;', $query);
     }
+
+    public function testDistinct()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->distinct()
+            ->select('id')
+            ->toSql();
+        $this->assertEquals('SELECT DISTINCT id FROM users;', $query);
+    }
+
 }

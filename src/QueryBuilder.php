@@ -43,6 +43,7 @@ class QueryBuilder
     private ?OrderByClause $orderByClause = null;
     private BindingsManager $bindingsManager;
     private ?Closure $objConverter = null;
+    private bool $isDistinct = false;
 
 
     public function __construct(PDO $pdo)
@@ -157,7 +158,8 @@ class QueryBuilder
             $this->whereQueryBuilder->getWhereClause(),
             $this->limitClause,
             $this->offsetClause,
-            $this->orderByClause
+            $this->orderByClause,
+            $this->isDistinct
         );
     }
 
@@ -271,10 +273,7 @@ class QueryBuilder
 
     public function distinct(): self
     {
-        if (!isset($this->selectClause)) {
-            $this->selectClause = new SelectStatement();
-        }
-        $this->selectClause->setDistinct(true);
+        $this->isDistinct = true;
         return $this;
     }
 
