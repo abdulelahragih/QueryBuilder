@@ -314,6 +314,15 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals(1, $result);
     }
 
+    public function testFirstWithSelect()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $result = $builder
+            ->table('users')
+            ->select('id')
+            ->first('name'); // ignore first columns
+        $this->assertEquals(1, $result);
+    }
     public function testPluck()
     {
         $builder = new QueryBuilder($this->pdo);

@@ -519,7 +519,7 @@ class QueryBuilder
      */
     public function first(string ...$columns): mixed
     {
-        if (!isset($this->selectClause)) {
+        if (empty($this->columns)) {
             $this->select(...$columns);
         }
 
