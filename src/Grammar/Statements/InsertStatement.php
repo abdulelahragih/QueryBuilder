@@ -2,6 +2,8 @@
 
 namespace Abdulelahragih\QueryBuilder\Grammar\Statements;
 
+use Abdulelahragih\QueryBuilder\Grammar\Expression;
+use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
 use Abdulelahragih\QueryBuilder\Traits\CanBuildClause;
 
 class InsertStatement implements Statement
@@ -9,16 +11,17 @@ class InsertStatement implements Statement
     use CanBuildClause;
 
     public function __construct(
-        private readonly string $table,
-        private readonly array  $columns,
-        private readonly array  $values,
+        private readonly Expression|string $table,
+        private readonly array             $columns,
+        private readonly array             $values,
     )
     {
     }
 
     public function build(): string
     {
-        return 'INSERT INTO ' . $this->table . ' (' . implode(', ', $this->columns) . ') VALUES ' .
+        $columns = SqlUtils::joinTo($this->columns, ', ', fn($column) => SqlUtils::quoteIdentifier($column));
+        return 'INSERT INTO ' . SqlUtils::quoteIdentifier($this->table) . ' (' . $columns . ') VALUES ' .
             $this->buildValuesClause($this->values);
     }
 

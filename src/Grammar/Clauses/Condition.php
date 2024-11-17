@@ -3,26 +3,30 @@ declare(strict_types=1);
 
 namespace Abdulelahragih\QueryBuilder\Grammar\Clauses;
 
+use Abdulelahragih\QueryBuilder\Grammar\Expression;
+use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
+
 class Condition implements Clause
 {
-    public readonly string $left;
+    public readonly Expression|string $left;
     public readonly string $operator;
-    public readonly string $right;
+    public readonly Expression|string $right;
 
     public Conjunction $conjunction;
 
     /**
-     * @param string $left
+     * @param Expression|string $left
      * @param string $operator
-     * @param string $right
+     * @param Expression|string $right
      * @param Conjunction|null $conjunction
      */
     public function __construct(
-        string       $left,
-        string       $operator,
-        string       $right,
-        ?Conjunction $conjunction = null,
-    ) {
+        Expression|string $left,
+        string            $operator,
+        Expression|string $right,
+        ?Conjunction      $conjunction = null,
+    )
+    {
         $this->left = $left;
         $this->operator = $operator;
         $this->right = $right;
@@ -31,6 +35,6 @@ class Condition implements Clause
 
     public function build(): string
     {
-        return $this->left . ' ' . $this->operator . ' ' . $this->right;
+        return SqlUtils::quoteIdentifier($this->left) . ' ' . $this->operator . ' ' . SqlUtils::quoteIdentifier($this->right);
     }
 }

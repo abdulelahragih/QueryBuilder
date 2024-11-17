@@ -2,6 +2,7 @@
 
 namespace Abdulelahragih\QueryBuilder;
 
+use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Closure;
 use Exception;
 use PDO;
@@ -75,6 +76,11 @@ class DBSingleton
     public static function lastInsertId(): string
     {
         return self::$pdo->lastInsertId();
+    }
+
+    public static function raw(string $value): Expression
+    {
+        return Expression::make($value);
     }
 
 }

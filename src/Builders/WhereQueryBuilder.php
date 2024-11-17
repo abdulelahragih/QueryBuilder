@@ -6,6 +6,7 @@ use Abdulelahragih\QueryBuilder\Grammar\Clauses\Condition;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\ConditionsGroup;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\Conjunction;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\WhereClause;
+use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 use Closure;
 use InvalidArgumentException;
@@ -53,7 +54,7 @@ class WhereQueryBuilder
             throw new InvalidArgumentException('Invalid operator ' . $operator);
         }
         $placeholder = $this->bindingsManager->add($value);
-        $condition = new Condition($column, $operator, $placeholder, $and ? Conjunction::AND() : Conjunction::OR());
+        $condition = new Condition($column, $operator, Expression::make($placeholder), $and ? Conjunction::AND() : Conjunction::OR());
 
         $this->whereClause->addCondition($condition);
         return $this;
@@ -70,9 +71,9 @@ class WhereQueryBuilder
     }
 
     public function orWhere(
-        mixed                      $column,
-        ?string                    $operator = null,
-        string|int|float|bool|null $value = null
+        mixed                                 $column,
+        ?string                               $operator = null,
+        Expression|string|int|float|bool|null $value = null
     ): self
     {
         $this->where($column, $operator, $value, false);
@@ -80,33 +81,33 @@ class WhereQueryBuilder
     }
 
     public function whereLike(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value,
         bool                  $and = true
     ): self
     {
         $placeholder = $this->bindingsManager->add($value);
-        $condition = new Condition($column, 'LIKE', $placeholder, $and ? Conjunction::AND() : Conjunction::OR());
+        $condition = new Condition($column, 'LIKE', Expression::make($placeholder), $and ? Conjunction::AND() : Conjunction::OR());
         $this->whereClause->addCondition($condition);
         return $this;
     }
 
     public function whereNotLike(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value,
         bool                  $and = true
     ): self
     {
         $placeholder = $this->bindingsManager->add($value);
-        $condition = new Condition($column, 'NOT LIKE', $placeholder, $and ? Conjunction::AND() : Conjunction::OR());
+        $condition = new Condition($column, 'NOT LIKE', Expression::make($placeholder), $and ? Conjunction::AND() : Conjunction::OR());
         $this->whereClause->addCondition($condition);
         return $this;
     }
 
     public function whereIn(
-        string $column,
-        array  $values,
-        bool   $and = true
+        Expression|string $column,
+        array             $values,
+        bool              $and = true
     ): self
     {
         if (empty($values)) {
@@ -121,7 +122,7 @@ class WhereQueryBuilder
         $condition = new Condition(
             $column,
             'IN',
-            '(' . implode(', ', $placeholders) . ')',
+            Expression::make('(' . implode(', ', $placeholders) . ')'),
             $and ? Conjunction::AND() : Conjunction::OR()
         );
         $this->whereClause->addCondition($condition);
@@ -129,22 +130,22 @@ class WhereQueryBuilder
     }
 
     private function addEmptyWhereIn(
-        bool   $and = true
+        bool $and = true
     ): void
     {
         $condition = new Condition(
-            1,
+            Expression::make(1),
             '=',
-            0,
+            Expression::make(0),
             $and ? Conjunction::AND() : Conjunction::OR()
         );
         $this->whereClause->addCondition($condition);
     }
 
     public function whereNotIn(
-        string $column,
-        array  $values,
-        bool   $and = true
+        Expression|string $column,
+        array             $values,
+        bool              $and = true
     ): self
     {
         if (empty($values)) {
@@ -158,7 +159,7 @@ class WhereQueryBuilder
         $condition = new Condition(
             $column,
             'NOT IN',
-            '(' . implode(', ', $placeholders) . ')',
+            Expression::make('(' . implode(', ', $placeholders) . ')'),
             $and ? Conjunction::AND() : Conjunction::OR()
         );
         $this->whereClause->addCondition($condition);
@@ -166,27 +167,27 @@ class WhereQueryBuilder
     }
 
     public function whereNull(
-        string $column,
-        bool   $and = true
+        Expression|string $column,
+        bool              $and = true
     ): self
     {
-        $condition = new Condition($column, 'IS', 'NULL', $and ? Conjunction::AND() : Conjunction::OR());
+        $condition = new Condition($column, 'IS', Expression::make('NULL'), $and ? Conjunction::AND() : Conjunction::OR());
         $this->whereClause->addCondition($condition);
         return $this;
     }
 
     public function whereNotNull(
-        string $column,
-        bool   $and = true
+        Expression|string $column,
+        bool              $and = true
     ): self
     {
-        $condition = new Condition($column, 'IS', 'NOT NULL', $and ? Conjunction::AND() : Conjunction::OR());
+        $condition = new Condition($column, 'IS', Expression::make('NOT NULL'), $and ? Conjunction::AND() : Conjunction::OR());
         $this->whereClause->addCondition($condition);
         return $this;
     }
 
     public function whereBetween(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value1,
         string|int|float|bool $value2,
         bool                  $and = true
@@ -197,7 +198,7 @@ class WhereQueryBuilder
         $condition = new Condition(
             $column,
             'BETWEEN',
-            "$placeholder1 AND $placeholder2",
+            Expression::make("$placeholder1 AND $placeholder2"),
             $and ? Conjunction::AND() : Conjunction::OR()
         );
         $this->whereClause->addCondition($condition);
@@ -205,7 +206,7 @@ class WhereQueryBuilder
     }
 
     public function whereNotBetween(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value1,
         string|int|float|bool $value2,
         bool                  $and = true
@@ -216,10 +217,15 @@ class WhereQueryBuilder
         $condition = new Condition(
             $column,
             'NOT BETWEEN',
-            "$placeholder1 AND $placeholder2",
+            Expression::make("$placeholder1 AND $placeholder2"),
             $and ? Conjunction::AND() : Conjunction::OR()
         );
         $this->whereClause->addCondition($condition);
         return $this;
+    }
+
+    public function raw(string $value): Expression
+    {
+        return Expression::make($value);
     }
 }

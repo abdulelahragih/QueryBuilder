@@ -6,6 +6,8 @@ namespace Abdulelahragih\QueryBuilder\Grammar\Statements;
 use Abdulelahragih\QueryBuilder\Data\QueryBuilderException;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\Clause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\WhereClause;
+use Abdulelahragih\QueryBuilder\Grammar\Expression;
+use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
 use Abdulelahragih\QueryBuilder\Traits\CanBuildClause;
 
 class UpdateStatement implements Clause
@@ -20,11 +22,11 @@ class UpdateStatement implements Clause
      * @param bool $forceUpdate
      */
     public function __construct(
-        private readonly string       $table,
-        public readonly ?array        $columnsToValues = null,
-        private readonly ?array       $joinClause = null,
-        private readonly ?WhereClause $whereClause = null,
-        private bool                  $forceUpdate = false
+        private readonly Expression|string $table,
+        public readonly ?array             $columnsToValues = null,
+        private readonly ?array            $joinClause = null,
+        private readonly ?WhereClause      $whereClause = null,
+        private bool                       $forceUpdate = false
     )
     {
     }
@@ -49,7 +51,7 @@ class UpdateStatement implements Clause
                     'Update statement without where clause is not allowed. Use force(true) to force update.');
             }
         }
-        return 'UPDATE ' . $this->table . ' SET ' .
+        return 'UPDATE ' . SqlUtils::quoteIdentifier($this->table) . ' SET ' .
             $this->buildSetClause($this->columnsToValues) .
             $this->buildOrEmpty($this->joinClause) .
             $this->buildOrEmpty($this->whereClause);
@@ -57,8 +59,8 @@ class UpdateStatement implements Clause
 
     private function buildSetClause(array $columnsToValues): string
     {
-        return implode(', ', array_map(function ($column, $value) {
-            return $column . ' = ' . $value;
+        return implode(', ', array_map(function (Expression|string $column, string $value) {
+            return SqlUtils::quoteIdentifier($column) . ' = ' . $value;
         }, array_keys($columnsToValues), $columnsToValues));
     }
 }

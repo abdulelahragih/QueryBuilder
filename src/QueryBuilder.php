@@ -13,6 +13,7 @@ use Abdulelahragih\QueryBuilder\Grammar\Clauses\JoinClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\LimitClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OffsetClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
+use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\DeleteStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\InsertStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\SelectStatement;
@@ -174,13 +175,13 @@ class QueryBuilder
         return $this->selectClause->build() . $this->queryEndMarker();
     }
 
-    public function table(string $table): self
+    public function table(Expression|string $table): self
     {
         $this->fromClause = new FromClause($table);
         return $this;
     }
 
-    public function select(string ...$columns): self
+    public function select(Expression|string ...$columns): self
     {
         $this->columns = $columns;
         return $this;
@@ -280,7 +281,7 @@ class QueryBuilder
     /**
      * @throws QueryBuilderException
      */
-    public function orderBy(string $column, string $type = 'ASC'): self
+    public function orderBy(Expression|string $column, string $type = 'ASC'): self
     {
         if (!OrderType::contains($type)) {
             throw new QueryBuilderException(QueryBuilderException::INVALID_ORDER_TYPE, 'Invalid order type ' . $type);
@@ -292,7 +293,7 @@ class QueryBuilder
         return $this;
     }
 
-    public function orderByDesc(string $column): self
+    public function orderByDesc(Expression|string $column): self
     {
         if (!isset($this->orderByClause)) {
             $this->orderByClause = new OrderByClause();
@@ -305,11 +306,11 @@ class QueryBuilder
      * @throws QueryBuilderException
      */
     public function join(
-        string         $table,
-        string|Closure $column1,
-        ?string        $operator = null,
-        ?string        $column2 = null,
-        string         $type = 'INNER'
+        Expression|string         $table,
+        Expression|string|Closure $column1,
+        ?string                   $operator = null,
+        Expression|string|null    $column2 = null,
+        string                    $type = 'INNER'
     ): self
     {
         if ($column1 instanceof Closure) {
@@ -331,10 +332,10 @@ class QueryBuilder
      * @throws QueryBuilderException
      */
     public function leftJoin(
-        string         $table,
-        string|Closure $column1,
-        ?string        $operator = null,
-        ?string        $column2 = null,
+        Expression|string         $table,
+        Expression|string|Closure $column1,
+        ?string                   $operator = null,
+        Expression|string|null    $column2 = null,
     ): self
     {
         $this->join($table, $column1, $operator, $column2, 'LEFT');
@@ -345,10 +346,10 @@ class QueryBuilder
      * @throws QueryBuilderException
      */
     public function rightJoin(
-        string         $table,
-        string|Closure $column1,
-        ?string        $operator = null,
-        ?string        $column2 = null,
+        Expression|string         $table,
+        Expression|string|Closure $column1,
+        ?string                   $operator = null,
+        Expression|string|null    $column2 = null,
     ): self
     {
         $this->join($table, $column1, $operator, $column2, 'RIGHT');
@@ -359,10 +360,10 @@ class QueryBuilder
      * @throws QueryBuilderException
      */
     public function fullJoin(
-        string         $table,
-        string|Closure $column1,
-        ?string        $operator = null,
-        ?string        $column2 = null,
+        Expression|string         $table,
+        Expression|string|Closure $column1,
+        ?string                   $operator = null,
+        Expression|string|null    $column2 = null,
     ): self
     {
         $this->join($table, $column1, $operator, $column2, 'FULL');
@@ -370,7 +371,7 @@ class QueryBuilder
     }
 
     public function where(
-        string|Closure             $column,
+        Expression|string|Closure  $column,
         ?string                    $operator = null,
         string|int|float|bool|null $value = null,
         bool                       $and = true
@@ -391,7 +392,7 @@ class QueryBuilder
     }
 
     public function whereLike(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value,
         bool                  $and = true
     ): self
@@ -401,7 +402,7 @@ class QueryBuilder
     }
 
     public function whereNotLike(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value,
         bool                  $and = true
     ): self
@@ -411,9 +412,9 @@ class QueryBuilder
     }
 
     public function whereIn(
-        string $column,
-        array  $values,
-        bool   $and = true
+        Expression|string $column,
+        array             $values,
+        bool              $and = true
     ): self
     {
         $this->whereQueryBuilder->whereIn($column, $values, $and);
@@ -421,9 +422,9 @@ class QueryBuilder
     }
 
     public function whereNotIn(
-        string $column,
-        array  $values,
-        bool   $and = true
+        Expression|string $column,
+        array             $values,
+        bool              $and = true
     ): self
     {
         $this->whereQueryBuilder->whereNotIn($column, $values, $and);
@@ -431,8 +432,8 @@ class QueryBuilder
     }
 
     public function whereNull(
-        string $column,
-        bool   $and = true
+        Expression|string $column,
+        bool              $and = true
     ): self
     {
         $this->whereQueryBuilder->whereNull($column, $and);
@@ -440,8 +441,8 @@ class QueryBuilder
     }
 
     public function whereNotNull(
-        string $column,
-        bool   $and = true
+        Expression|string $column,
+        bool              $and = true
     ): self
     {
         $this->whereQueryBuilder->whereNotNull($column, $and);
@@ -449,7 +450,7 @@ class QueryBuilder
     }
 
     public function whereBetween(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value1,
         string|int|float|bool $value2,
         bool                  $and = true
@@ -460,7 +461,7 @@ class QueryBuilder
     }
 
     public function whereNotBetween(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value1,
         string|int|float|bool $value2,
         bool                  $and = true
@@ -508,6 +509,11 @@ class QueryBuilder
         return ';';
     }
 
+    /**
+     * Allow for custom object conversion after fetching the results
+     * @param Closure $objConverter
+     * @return $this
+     */
     public function objectConverter(Closure $objConverter): self
     {
         $this->objConverter = $objConverter;
@@ -515,6 +521,7 @@ class QueryBuilder
     }
 
     /**
+     * Limit the number of results to 1 and return the first result
      * @throws QueryBuilderException
      */
     public function first(string ...$columns): mixed
@@ -539,6 +546,7 @@ class QueryBuilder
     }
 
     /**
+     * Retrieve a single column from the result
      * @throws QueryBuilderException
      */
     public function pluck(string $column): array
@@ -548,8 +556,22 @@ class QueryBuilder
         return $result->pluck($column);
     }
 
+    /**
+     * Retrieve all the bound values
+     * @return array
+     */
     public function getValues(): array
     {
         return Collection::make($this->bindingsManager->getBindings())->values()->toArray();
+    }
+
+    /**
+     * Allow for raw expressions in the query
+     * @param string $value
+     * @return Expression
+     */
+    public function raw(string $value): Expression
+    {
+        return Expression::make($value);
     }
 }
