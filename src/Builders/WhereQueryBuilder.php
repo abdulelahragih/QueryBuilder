@@ -110,7 +110,7 @@ class WhereQueryBuilder
     ): self
     {
         if (empty($values)) {
-            $this->addEmptyWhereIn($column, $values, $and);
+            $this->addEmptyWhereIn($and);
             return $this;
         }
         $placeholders = [];
@@ -129,8 +129,6 @@ class WhereQueryBuilder
     }
 
     private function addEmptyWhereIn(
-        string $column,
-        array  $values,
         bool   $and = true
     ): void
     {
