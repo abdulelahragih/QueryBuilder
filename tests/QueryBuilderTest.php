@@ -6,6 +6,8 @@ use Abdulelahragih\QueryBuilder\Builders\JoinClauseBuilder;
 use Abdulelahragih\QueryBuilder\Builders\WhereQueryBuilder;
 use Abdulelahragih\QueryBuilder\QueryBuilder;
 use Abdulelahragih\QueryBuilder\Tests\Traits\TestTrait;
+use Error;
+use Exception;
 use PHPUnit\Framework\TestCase;
 
 class QueryBuilderTest extends TestCase
@@ -375,6 +377,28 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals('John', $name);
         $name = $builder->table('users')->where('id', '=', 101)->first('name');
         $this->assertEquals('Jane', $name);
+    }
+
+    public function testUpsert()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        try {
+            $builder
+                ->table('users')
+                ->upsert(
+                    [
+                        'id' => 100,
+                        'name' => 'John'
+                    ],
+                    [
+                        'name' => 'Jane'
+                    ],
+                    $query);
+        } catch (Exception|Error) {
+        }
+
+        $this->assertEquals('INSERT INTO `users` (`id`, `name`) VALUES (:v1, :v2) ON DUPLICATE KEY UPDATE `name` = :v3;', $query);
     }
 
     public function testUpdate()

@@ -14,6 +14,7 @@ class InsertStatement implements Statement
         private readonly Expression|string $table,
         private readonly array             $columns,
         private readonly array             $values,
+        private readonly ?array            $updateOnDuplicateKey = null
     )
     {
     }
@@ -22,7 +23,7 @@ class InsertStatement implements Statement
     {
         $columns = SqlUtils::joinTo($this->columns, ', ', fn($column) => SqlUtils::quoteIdentifier($column));
         return 'INSERT INTO ' . SqlUtils::quoteIdentifier($this->table) . ' (' . $columns . ') VALUES ' .
-            $this->buildValuesClause($this->values);
+            $this->buildValuesClause($this->values) . $this->buildOnDuplicateKeyUpdateClause();
     }
 
     private function buildValuesClause(array $values): string
@@ -40,5 +41,17 @@ class InsertStatement implements Statement
             $valueClauses[] = '(' . $rowValues . ')';
         }
         return implode(', ', $valueClauses);
+    }
+
+    private function buildOnDuplicateKeyUpdateClause(): string
+    {
+        if (empty($this->updateOnDuplicateKey)) {
+            return '';
+        }
+        $updateColumns = SqlUtils::joinToAssociative($this->updateOnDuplicateKey, ', ', function ($column, $value) {
+            return SqlUtils::quoteIdentifier($column) . ' = ' . $value;
+        });
+        return ' ON DUPLICATE KEY UPDATE ' . $updateColumns;
+
     }
 }

@@ -46,7 +46,6 @@ class QueryBuilder
     private ?Closure $objConverter = null;
     private bool $isDistinct = false;
 
-
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -73,59 +72,68 @@ class QueryBuilder
      */
     public function get(): Collection
     {
-        $query = $this->buildQuery();
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            throw new QueryBuilderException(QueryBuilderException::EXECUTE_ERROR, 'Error executing the query');
+        try {
+            $query = $this->buildQuery();
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                throw new QueryBuilderException(QueryBuilderException::EXECUTE_ERROR, 'Error executing the query');
+            }
+            $items = $statement->fetchAll(PDO::FETCH_ASSOC);
+            if (isset($this->objConverter)) {
+                $items = array_map($this->objConverter, $items);
+            }
+            return Collection::make($items);
+        } finally {
+            $this->resetBuilderState();
         }
-        $items = $statement->fetchAll(PDO::FETCH_ASSOC);
-        if (isset($this->objConverter)) {
-            $items = array_map($this->objConverter, $items);
-        }
-        $this->resetBuilderState();
-        return Collection::make($items);
     }
 
     public function paginate(int $page, int $perPage, string $pageName = 'page'): LengthAwarePaginator
     {
-        $this->offsetClause = new OffsetClause(($page - 1) * $perPage);
-        if (!isset($this->limitClause)) {
-            $this->limitClause = new LimitClause($perPage);
+        try {
+            $this->offsetClause = new OffsetClause(($page - 1) * $perPage);
+            if (!isset($this->limitClause)) {
+                $this->limitClause = new LimitClause($perPage);
+            }
+            $query = $this->buildPaginatedQuery();
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return LengthAwarePaginator::empty($perPage);
+            }
+            $items = $statement->fetchAll(PDO::FETCH_ASSOC);
+            if (isset($this->objConverter)) {
+                $items = array_map($this->objConverter, $items);
+            }
+            $query = "SELECT COUNT(*) FROM {$this->fromClause->table} {$this->getJoinClause()} {$this->getWhereClause()}";
+            $statement = $this->pdo->prepare($query);
+            $statement->execute($this->bindingsManager->getBindingsOrNull());
+            $total = (int)$statement->fetchColumn();
+            return (new LengthAwarePaginator($items, $page, $perPage, $total))->setPageName($pageName);
+        } finally {
+            $this->resetBuilderState();
         }
-        $query = $this->buildPaginatedQuery();
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return LengthAwarePaginator::empty($perPage);
-        }
-        $items = $statement->fetchAll(PDO::FETCH_ASSOC);
-        if (isset($this->objConverter)) {
-            $items = array_map($this->objConverter, $items);
-        }
-        $query = "SELECT COUNT(*) FROM {$this->fromClause->table} {$this->getJoinClause()} {$this->getWhereClause()}";
-        $statement = $this->pdo->prepare($query);
-        $statement->execute($this->bindingsManager->getBindingsOrNull());
-        $total = (int)$statement->fetchColumn();
-        $this->resetBuilderState();
-        return (new LengthAwarePaginator($items, $page, $perPage, $total))->setPageName($pageName);
     }
 
     public function simplePaginate(int $page, int $perPage, string $pageName = 'page'): SimplePaginator
     {
-        $this->offsetClause = new OffsetClause(($page - 1) * $perPage);
-        if (!isset($this->limitClause)) {
-            $this->limitClause = new LimitClause($perPage);
+        try {
+            $this->offsetClause = new OffsetClause(($page - 1) * $perPage);
+            if (!isset($this->limitClause)) {
+                $this->limitClause = new LimitClause($perPage);
+            }
+            $query = $this->buildPaginatedQuery();
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return SimplePaginator::empty($perPage);
+            }
+            $items = $statement->fetchAll(PDO::FETCH_ASSOC);
+            if (isset($this->objConverter)) {
+                $items = array_map($this->objConverter, $items);
+            }
+            return (new SimplePaginator($items, $page, $perPage))->setPageName($pageName);
+        } finally {
+            $this->resetBuilderState();
         }
-        $query = $this->buildPaginatedQuery();
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return SimplePaginator::empty($perPage);
-        }
-        $items = $statement->fetchAll(PDO::FETCH_ASSOC);
-        if (isset($this->objConverter)) {
-            $items = array_map($this->objConverter, $items);
-        }
-        $this->resetBuilderState();
-        return (new SimplePaginator($items, $page, $perPage))->setPageName($pageName);
     }
 
     /**
@@ -194,82 +202,116 @@ class QueryBuilder
      */
     public function update(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
-        // convert values to place holder
-        $columnsToValues = array_map(function ($value) {
-            if (is_array($value)) {
-                throw new QueryBuilderException(QueryBuilderException::INVALID_QUERY, 'Value cannot be an array');
+        try {
+            // convert values to place holder
+            $columnsToValues = array_map(function ($value) {
+                if (is_array($value)) {
+                    throw new QueryBuilderException(QueryBuilderException::INVALID_QUERY, 'Value cannot be an array');
+                }
+                return $this->bindingsManager->add($value);
+            }, $columnsToValues);
+            $updateStatement = new UpdateStatement(
+                $this->fromClause->table,
+                $columnsToValues,
+                $this->joinClauses,
+                $this->whereQueryBuilder->getWhereClause()
+            );
+            $query = $updateStatement->build() . $this->queryEndMarker();
+            $resultedSql = $query;
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return null;
             }
-            return $this->bindingsManager->add($value);
-        }, $columnsToValues);
-        $updateStatement = new UpdateStatement(
-            $this->fromClause->table,
-            $columnsToValues,
-            $this->joinClauses,
-            $this->whereQueryBuilder->getWhereClause()
-        );
-        $query = $updateStatement->build() . $this->queryEndMarker();
-        $resultedSql = $query;
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return null;
+            return $statement->rowCount();
+        } finally {
+            $this->resetBuilderState();
         }
-        $this->resetBuilderState();
-        return $statement->rowCount();
     }
 
     public function delete(?string &$resultedSql = null): ?int
     {
-        $deleteStatement = new DeleteStatement(
-            $this->fromClause->table,
-            $this->joinClauses,
-            $this->whereQueryBuilder->getWhereClause()
-        );
-        $query = $deleteStatement->build() . $this->queryEndMarker();
-        $resultedSql = $query;
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return null;
+        try {
+            $deleteStatement = new DeleteStatement(
+                $this->fromClause->table,
+                $this->joinClauses,
+                $this->whereQueryBuilder->getWhereClause()
+            );
+            $query = $deleteStatement->build() . $this->queryEndMarker();
+            $resultedSql = $query;
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return null;
+            }
+            return $statement->rowCount();
+        } finally {
+            $this->resetBuilderState();
         }
-        $this->resetBuilderState();
-        return $statement->rowCount();
     }
 
     /**
      * @param array $columnsToValues an associative array of columns to values to be inserted
-     * @returns int the number of inserted rows or null on failure
+     * @param array|null $updateOnDuplicate
+     * @param string|null $resultedSql
+     * @return int|null the number of inserted rows or null on failure
+     */
+    public function upsert(array $columnsToValues, ?array $updateOnDuplicate = [], ?string &$resultedSql = null): ?int
+    {
+        try {
+            $this->bindingsManager->reset();
+            if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
+                // $columnsToValues is an array of arrays (multiple rows)
+                $columns = array_keys($columnsToValues[0]);
+                $values = array_map(function ($row) {
+                    // convert values to placeholders
+                    return array_map(function ($value) {
+                        return $this->bindingsManager->add($value);
+                    }, $row);
+                }, $columnsToValues);
+            } else {
+                // $columnsToValues is a single array (single row)
+                $columns = array_keys($columnsToValues);
+                $values = array_map(function ($value) {
+                    return $this->bindingsManager->add($value);
+                }, $columnsToValues);
+            }
+
+            if (!empty($updateOnDuplicate)) {
+                foreach ($updateOnDuplicate as $column => $value) {
+                    $updateOnDuplicate[$column] = $this->bindingsManager->add($value);
+                }
+            } elseif ($updateOnDuplicate === []) {
+                foreach ($columnsToValues as $column => $value) {
+                    $updateOnDuplicate[$column] = $this->bindingsManager->add($value);
+                }
+            }
+
+            $insertStatement = new InsertStatement(
+                $this->fromClause->table,
+                $columns,
+                $values,
+                $updateOnDuplicate
+            );
+            $query = $insertStatement->build() . $this->queryEndMarker();
+            $resultedSql = $query;
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return null;
+            }
+            return $statement->rowCount();
+
+        } finally {
+            $this->resetBuilderState();
+        }
+    }
+
+    /**
+     * @param array $columnsToValues an associative array of columns to values to be inserted
+     * @param string|null $resultedSql
+     * @return int|null the number of inserted rows or null on failure
      */
     public function insert(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
-        if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
-            // $columnsToValues is an array of arrays (multiple rows)
-            $columns = array_keys($columnsToValues[0]);
-            $values = array_map(function ($row) {
-                // convert values to placeholders
-                return array_map(function ($value) {
-                    return $this->bindingsManager->add($value);
-                }, $row);
-            }, $columnsToValues);
-        } else {
-            // $columnsToValues is a single array (single row)
-            $columns = array_keys($columnsToValues);
-            $values = array_map(function ($value) {
-                return $this->bindingsManager->add($value);
-            }, $columnsToValues);
-        }
-
-        $insertStatement = new InsertStatement(
-            $this->fromClause->table,
-            $columns,
-            $values
-        );
-        $query = $insertStatement->build() . $this->queryEndMarker();
-        $resultedSql = $query;
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return null;
-        }
-        $this->resetBuilderState();
-        return $statement->rowCount();
+        return $this->upsert($columnsToValues, null, $resultedSql);
     }
 
     public function distinct(): self

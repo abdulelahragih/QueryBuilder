@@ -16,10 +16,23 @@ class SqlUtils
      */
     public static function joinTo(array $items, string $separator = ', ', ?callable $callback = null): string
     {
-        // Apply callback to each item if provided
         $processedItems = $callback ? array_map($callback, $items) : $items;
 
-        // Join the processed items
+        return implode($separator, $processedItems);
+    }
+
+    /**
+     * Joins an associative array of items with an optional callback to process each item.
+     *
+     * @param array $items The items to join.
+     * @param string $separator The separator for joining.
+     * @param callable|null $callback An optional callback to apply to each item.
+     * @return string The joined string.
+     */
+    public static function joinToAssociative(array $items, string $separator = ', ', ?callable $callback = null): string
+    {
+        $processedItems = $callback ? array_map($callback, array_keys($items), $items) : $items;
+
         return implode($separator, $processedItems);
     }
 
