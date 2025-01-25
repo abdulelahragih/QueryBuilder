@@ -48,7 +48,12 @@ class InsertStatement implements Statement
         if (empty($this->updateOnDuplicateKey)) {
             return '';
         }
-        $updateColumns = SqlUtils::joinToAssociative($this->updateOnDuplicateKey, ', ', function ($column, $value) {
+        $index = 0;
+        $updateColumns = SqlUtils::joinToAssociative($this->updateOnDuplicateKey, ', ', function ($column, $value) use (&$index) {
+            if (is_int($column) && $column === $index) {
+                $index++;
+                return SqlUtils::quoteIdentifier($value) . ' = ' . 'VALUES(' . SqlUtils::quoteIdentifier($value) . ')';
+            }
             return SqlUtils::quoteIdentifier($column) . ' = ' . $value;
         });
         return ' ON DUPLICATE KEY UPDATE ' . $updateColumns;

@@ -392,13 +392,60 @@ class QueryBuilderTest extends TestCase
                         'name' => 'John'
                     ],
                     [
-                        'name' => 'Jane'
+                        'name'
                     ],
                     $query);
         } catch (Exception|Error) {
         }
 
+        $this->assertEquals('INSERT INTO `users` (`id`, `name`) VALUES (:v1, :v2) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);', $query);
+    }
+
+    public function testUpsertWithCustomValueOnUpdate()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        try {
+            $builder
+                ->table('users')
+                ->upsert(
+                    [
+                        'id' => 100,
+                        'name' => 'John'
+                    ],
+                    [
+                        'name' => 'Jane'
+                    ],
+                    $query);
+        } catch (Exception|Error) {
+        }
+        echo $query;
+
         $this->assertEquals('INSERT INTO `users` (`id`, `name`) VALUES (:v1, :v2) ON DUPLICATE KEY UPDATE `name` = :v3;', $query);
+    }
+
+    public function testUpsertMultipleRows()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        try {
+            $builder
+                ->table('users')
+                ->upsert(
+                    [
+                        ['id' => 100, 'name' => 'John'],
+                        ['id' => 101, 'name' => 'Jane']
+                    ],
+                    ['name'],
+                    $query
+                );
+        } catch (Exception|Error) {
+        }
+
+        $this->assertEquals(
+            'INSERT INTO `users` (`id`, `name`) VALUES (:v1, :v2), (:v3, :v4) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);',
+            $query
+        );
     }
 
     public function testUpdate()
