@@ -679,4 +679,14 @@ class QueryBuilderTest extends TestCase
         $name = $builder->table('users')->where('id', '=', 1)->first('name');
         $this->assertEquals('Sarah Connor', $name);
     }
+
+    public function testAliasedTable()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users AS u')
+            ->select('u.id', 'u.name')
+            ->toSql();
+        $this->assertEquals('SELECT `u`.`id`, `u`.`name` FROM `users` AS `u`;', $query);
+    }
 }

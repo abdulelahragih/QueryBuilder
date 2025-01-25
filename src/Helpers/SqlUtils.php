@@ -50,6 +50,17 @@ class SqlUtils
             return $identifier->getValue();
         }
 
+        if (SqlUtils::isAliased($identifier)) {
+            // Split the identifier and alias
+            if (str_contains($identifier, ' AS ')) {
+                [$identifier, $alias] = explode(' AS ', $identifier);
+            } else {
+                [$identifier, $alias] = explode(' as ', $identifier);
+            }
+
+            // Quote the identifier and alias separately
+            return SqlUtils::quoteIdentifier($identifier) . ' AS ' . SqlUtils::quoteIdentifier($alias);
+        }
         // Split identifiers by dots (e.g., user.id -> ['user', 'id'])
         $parts = explode('.', $identifier);
 
@@ -59,10 +70,18 @@ class SqlUtils
             if (str_starts_with($part, '`') && str_ends_with($part, '`')) {
                 return $part;
             }
+            if ($part === '*') {
+                return $part;
+            }
             // Escape backticks and wrap with backticks
             return '`' . str_replace('`', '``', $part) . '`';
         }, $parts);
 
         return implode('.', $quotedParts);
+    }
+
+    private static function isAliased(Expression|string $identifier): bool
+    {
+        return str_contains(strtolower($identifier), ' as ');
     }
 }
