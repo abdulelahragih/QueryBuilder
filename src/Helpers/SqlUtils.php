@@ -52,7 +52,11 @@ class SqlUtils
 
         if (SqlUtils::isAliased($identifier)) {
             // Split the identifier and alias
-            [$identifier, $alias] = explode(' AS ', $identifier);
+            if (str_contains($identifier, ' AS ')) {
+                [$identifier, $alias] = explode(' AS ', $identifier);
+            } else {
+                [$identifier, $alias] = explode(' as ', $identifier);
+            }
 
             // Quote the identifier and alias separately
             return SqlUtils::quoteIdentifier($identifier) . ' AS ' . SqlUtils::quoteIdentifier($alias);
