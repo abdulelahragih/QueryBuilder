@@ -2,6 +2,7 @@
 
 namespace Abdulelahragih\QueryBuilder\Tests\Traits;
 
+use Exception;
 use PDO;
 
 trait TestTrait

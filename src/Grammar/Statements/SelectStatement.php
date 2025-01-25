@@ -9,6 +9,7 @@ use Abdulelahragih\QueryBuilder\Grammar\Clauses\LimitClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OffsetClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\WhereClause;
+use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
 use Abdulelahragih\QueryBuilder\Traits\CanBuildClause;
 
 class SelectStatement implements Statement
@@ -23,6 +24,7 @@ class SelectStatement implements Statement
      * @param LimitClause|null $limitClause
      * @param OffsetClause|null $offsetClause
      * @param OrderByClause|null $orderByClause
+     * @param bool $distinct
      */
     public function __construct(
         private readonly ?FromClause    $fromClause = null,
@@ -32,7 +34,7 @@ class SelectStatement implements Statement
         private readonly ?LimitClause   $limitClause = null,
         private readonly ?OffsetClause  $offsetClause = null,
         private readonly ?OrderByClause $orderByClause = null,
-        private readonly bool $distinct = false
+        private readonly bool           $distinct = false
     )
     {
     }
@@ -53,7 +55,9 @@ class SelectStatement implements Statement
     private function buildSelectQuery(): string
     {
         $distinct = $this->distinct ? 'DISTINCT ' : '';
-        return "SELECT " . $distinct . (empty($this->columns) ? '*' : implode(', ', $this->columns)) .
+        $columns = empty($this->columns) ? '*' :
+            SqlUtils::joinTo($this->columns, ', ', fn($column) => SqlUtils::quoteIdentifier($column));
+        return "SELECT " . $distinct . $columns .
             $this->buildOrEmpty($this->fromClause) .
             $this->buildOrEmpty($this->joinClause) .
             $this->buildOrEmpty($this->whereClause) .
