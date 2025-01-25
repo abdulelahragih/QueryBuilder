@@ -66,6 +66,9 @@ class SqlUtils
             if (str_starts_with($part, '`') && str_ends_with($part, '`')) {
                 return $part;
             }
+            if ($part === '*') {
+                return $part;
+            }
             // Escape backticks and wrap with backticks
             return '`' . str_replace('`', '``', $part) . '`';
         }, $parts);
