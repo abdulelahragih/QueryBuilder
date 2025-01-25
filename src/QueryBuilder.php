@@ -277,6 +277,9 @@ class QueryBuilder
 
             if (!empty($updateOnDuplicate)) {
                 foreach ($updateOnDuplicate as $column => $value) {
+                    if (is_int($column)) {
+                        continue;
+                    }
                     $updateOnDuplicate[$column] = $this->bindingsManager->add($value);
                 }
             } elseif ($updateOnDuplicate === []) {
