@@ -19,7 +19,7 @@ trait CanBuildClause
 
             $builtClause = '';
             foreach ($clause as $item) {
-                $builtClause .= $item->build() . "\n";
+                $builtClause .= $item->build() . " ";
             }
             return ' ' . trim($builtClause);
         }
