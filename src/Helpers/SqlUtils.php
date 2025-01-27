@@ -50,7 +50,7 @@ class SqlUtils
             return $identifier->getValue();
         }
 
-        if (SqlUtils::isAliased($identifier)) {
+        if (SqlUtils::isAliasedWithAs($identifier)) {
             // Split the identifier and alias
             if (str_contains($identifier, ' AS ')) {
                 [$identifier, $alias] = explode(' AS ', $identifier);
@@ -60,28 +60,37 @@ class SqlUtils
 
             // Quote the identifier and alias separately
             return SqlUtils::quoteIdentifier($identifier) . ' AS ' . SqlUtils::quoteIdentifier($alias);
+        } elseif (SqlUtils::isAliasedWithSpace($identifier)) {
+            // Split the identifier and alias by the last space
+            $parts = preg_split('/\s+/', $identifier, 2);
+
+            $quotedIdentifier = self::quoteIdentifier($parts[0]);
+            $quotedAlias = self::quoteIdentifier($parts[1]);
+
+            return $quotedIdentifier . ' ' . $quotedAlias;
         }
+
         // Split identifiers by dots (e.g., user.id -> ['user', 'id'])
         $parts = explode('.', $identifier);
 
         // Quote each part and join them with `.`
         $quotedParts = array_map(function ($part) {
-            // Check if the part is already enclosed in backticks
-            if (str_starts_with($part, '`') && str_ends_with($part, '`')) {
+            if ($part === '*') { // That is in case of SELECT tableA.*, tableB.id...
                 return $part;
             }
-            if ($part === '*') {
-                return $part;
-            }
-            // Escape backticks and wrap with backticks
-            return '`' . str_replace('`', '``', $part) . '`';
+            return '`' . $part . '`';
         }, $parts);
 
         return implode('.', $quotedParts);
     }
 
-    private static function isAliased(Expression|string $identifier): bool
+    private static function isAliasedWithAs(string $identifier): bool
     {
         return str_contains(strtolower($identifier), ' as ');
+    }
+
+    private static function isAliasedWithSpace(string $identifier): bool
+    {
+        return preg_match('/\s+/', $identifier);
     }
 }
