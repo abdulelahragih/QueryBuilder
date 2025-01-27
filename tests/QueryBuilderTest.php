@@ -23,6 +23,13 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals('SELECT `id`, `name` FROM `users`;', $query);
     }
 
+    public function testEmptySelect()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder->table('users')->toSql();
+        $this->assertEquals('SELECT * FROM `users`;', $query);
+    }
+
     public function testSimpleWhere()
     {
         $builder = new QueryBuilder($this->pdo);
@@ -290,6 +297,21 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals('SELECT * FROM `users` RIGHT JOIN `images` ON `images`.`user_id` = `users`.`id`;', $query);
     }
 
+    public function testMultipleJoins()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->join('posts', 'posts.user_id', '=', 'users.id')
+            ->join('comments', 'comments.post_id', '=', 'posts.id')
+            ->toSql();
+        $this->assertEquals(
+            'SELECT * FROM `users` INNER JOIN `posts` ON `posts`.`user_id` = `users`.`id` INNER JOIN `comments` ON `comments`.`post_id` = `posts`.`id`;',
+            $query
+        );
+    }
+
+
     public function testNestedJoinConditions()
     {
         $builder = new QueryBuilder($this->pdo);
@@ -419,7 +441,6 @@ class QueryBuilderTest extends TestCase
                     $query);
         } catch (Exception|Error) {
         }
-        echo $query;
 
         $this->assertEquals('INSERT INTO `users` (`id`, `name`) VALUES (:v1, :v2) ON DUPLICATE KEY UPDATE `name` = :v3;', $query);
     }
@@ -680,13 +701,59 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals('Sarah Connor', $name);
     }
 
-    public function testAliasedTable()
+    public function testAliasing()
     {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
             ->table('users AS u')
-            ->select('u.id', 'u.name')
+            ->select('u.id AS user_id', 'u.name AS user_name')
             ->toSql();
-        $this->assertEquals('SELECT `u`.`id`, `u`.`name` FROM `users` AS `u`;', $query);
+        $this->assertEquals('SELECT `u`.`id` AS `user_id`, `u`.`name` AS `user_name` FROM `users` AS `u`;', $query);
     }
+
+    public function testAliasingWithoutAs()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users u')
+            ->select('u.id user_id', 'u.name user_name')
+            ->toSql();
+        $this->assertEquals('SELECT `u`.`id` `user_id`, `u`.`name` `user_name` FROM `users` `u`;', $query);
+    }
+
+    public function testTableAliasingWithJoins()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users u')
+            ->join('orders o', 'o.user_id', '=', 'u.id')
+            ->join('orders AS o2', 'o2.user_id', '=', 'u.id')
+            ->select('u.id user_id', 'u.name user_name', 'o.amount')
+            ->toSql();
+        $this->assertEquals(
+            'SELECT `u`.`id` `user_id`, `u`.`name` `user_name`, `o`.`amount` FROM `users` `u` INNER JOIN `orders` `o` ON `o`.`user_id` = `u`.`id` INNER JOIN `orders` AS `o2` ON `o2`.`user_id` = `u`.`id`;',
+            $query
+        );
+    }
+
+    public function testAggregateFunctions()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('orders')
+            ->select($builder->raw('COUNT(*) AS total_orders'))
+            ->toSql();
+        $this->assertEquals('SELECT COUNT(*) AS total_orders FROM `orders`;', $query);
+    }
+
+    public function testSpecialCharactersInIdentifiers()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('`users`')
+            ->select('`id`', '`name`')
+            ->toSql();
+        $this->assertEquals('SELECT ``id``, ``name`` FROM ``users``;', $query);
+    }
+
 }
