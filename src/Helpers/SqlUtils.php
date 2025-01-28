@@ -50,6 +50,7 @@ class SqlUtils
             return $identifier->getValue();
         }
 
+        $matches = null;
         if (SqlUtils::isAliasedWithAs($identifier)) {
             // Split the identifier and alias
             if (str_contains($identifier, ' AS ')) {
@@ -60,12 +61,10 @@ class SqlUtils
 
             // Quote the identifier and alias separately
             return SqlUtils::quoteIdentifier($identifier) . ' AS ' . SqlUtils::quoteIdentifier($alias);
-        } elseif (SqlUtils::isAliasedWithSpace($identifier)) {
+        } elseif (SqlUtils::isAliasedWithSpace($identifier, $matches)) {
             // Split the identifier and alias by the last space
-            $parts = preg_split('/\s+/', $identifier, 2);
-
-            $quotedIdentifier = self::quoteIdentifier($parts[0]);
-            $quotedAlias = self::quoteIdentifier($parts[1]);
+            $quotedIdentifier = self::quoteIdentifier($matches[1]);
+            $quotedAlias = self::quoteIdentifier($matches[2]);
 
             return $quotedIdentifier . ' ' . $quotedAlias;
         }
@@ -89,8 +88,8 @@ class SqlUtils
         return str_contains(strtolower($identifier), ' as ');
     }
 
-    private static function isAliasedWithSpace(string $identifier): bool
+    private static function isAliasedWithSpace(string $identifier, &$matches = null): bool
     {
-        return preg_match('/\s+/', $identifier);
+        return preg_match('/^(\s*(?:[^ \t\n\r`]+|`[^`]+`))\s+((?:[^ \t\n\r`]+|`[^`]+`)\s*)$/', $identifier, $matches);
     }
 }
