@@ -756,4 +756,12 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals('SELECT ``id``, ``name`` FROM ``users``;', $query);
     }
 
+    public function testSpaceEscaping() {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table(' users ')
+            ->select(' id  ` uid`', 'name ')
+            ->toSql();
+        $this->assertEquals('SELECT ` id` `` uid``, `name ` FROM ` users `;', $query);
+    }
 }
