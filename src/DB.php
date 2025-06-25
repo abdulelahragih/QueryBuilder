@@ -3,6 +3,7 @@
 namespace Abdulelahragih\QueryBuilder;
 
 use Abdulelahragih\QueryBuilder\Data\Collection;
+use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Closure;
 use Exception;
 use PDO;
@@ -84,5 +85,10 @@ class DB
             $items = array_map($this->objConverter, $items);
         }
         return Collection::make($items);
+    }
+
+    public function raw(string $value): Expression
+    {
+        return Expression::make($value);
     }
 }

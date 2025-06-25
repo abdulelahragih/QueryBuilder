@@ -2,6 +2,8 @@
 
 namespace Abdulelahragih\QueryBuilder\Grammar\Statements;
 
+use Abdulelahragih\QueryBuilder\Grammar\Expression;
+use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
 use Abdulelahragih\QueryBuilder\Traits\CanBuildClause;
 
 class InsertStatement implements Statement
@@ -9,17 +11,19 @@ class InsertStatement implements Statement
     use CanBuildClause;
 
     public function __construct(
-        private readonly string $table,
-        private readonly array  $columns,
-        private readonly array  $values,
+        private readonly Expression|string $table,
+        private readonly array             $columns,
+        private readonly array             $values,
+        private readonly ?array            $updateOnDuplicateKey = null
     )
     {
     }
 
     public function build(): string
     {
-        return 'INSERT INTO ' . $this->table . ' (' . implode(', ', $this->columns) . ') VALUES ' .
-            $this->buildValuesClause($this->values);
+        $columns = SqlUtils::joinTo($this->columns, ', ', fn($column) => SqlUtils::quoteIdentifier($column));
+        return 'INSERT INTO ' . SqlUtils::quoteIdentifier($this->table) . ' (' . $columns . ') VALUES ' .
+            $this->buildValuesClause($this->values) . $this->buildOnDuplicateKeyUpdateClause();
     }
 
     private function buildValuesClause(array $values): string
@@ -37,5 +41,22 @@ class InsertStatement implements Statement
             $valueClauses[] = '(' . $rowValues . ')';
         }
         return implode(', ', $valueClauses);
+    }
+
+    private function buildOnDuplicateKeyUpdateClause(): string
+    {
+        if (empty($this->updateOnDuplicateKey)) {
+            return '';
+        }
+        $index = 0;
+        $updateColumns = SqlUtils::joinToAssociative($this->updateOnDuplicateKey, ', ', function ($column, $value) use (&$index) {
+            if (is_int($column) && $column === $index) {
+                $index++;
+                return SqlUtils::quoteIdentifier($value) . ' = ' . 'VALUES(' . SqlUtils::quoteIdentifier($value) . ')';
+            }
+            return SqlUtils::quoteIdentifier($column) . ' = ' . $value;
+        });
+        return ' ON DUPLICATE KEY UPDATE ' . $updateColumns;
+
     }
 }

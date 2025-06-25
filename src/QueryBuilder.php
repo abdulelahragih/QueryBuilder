@@ -13,6 +13,7 @@ use Abdulelahragih\QueryBuilder\Grammar\Clauses\JoinClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\LimitClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OffsetClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
+use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\DeleteStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\InsertStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\SelectStatement;
@@ -45,7 +46,6 @@ class QueryBuilder
     private ?Closure $objConverter = null;
     private bool $isDistinct = false;
 
-
     public function __construct(PDO $pdo)
     {
         $this->pdo = $pdo;
@@ -72,59 +72,68 @@ class QueryBuilder
      */
     public function get(): Collection
     {
-        $query = $this->buildQuery();
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            throw new QueryBuilderException(QueryBuilderException::EXECUTE_ERROR, 'Error executing the query');
+        try {
+            $query = $this->buildQuery();
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                throw new QueryBuilderException(QueryBuilderException::EXECUTE_ERROR, 'Error executing the query');
+            }
+            $items = $statement->fetchAll(PDO::FETCH_ASSOC);
+            if (isset($this->objConverter)) {
+                $items = array_map($this->objConverter, $items);
+            }
+            return Collection::make($items);
+        } finally {
+            $this->resetBuilderState();
         }
-        $items = $statement->fetchAll(PDO::FETCH_ASSOC);
-        if (isset($this->objConverter)) {
-            $items = array_map($this->objConverter, $items);
-        }
-        $this->resetBuilderState();
-        return Collection::make($items);
     }
 
     public function paginate(int $page, int $perPage, string $pageName = 'page'): LengthAwarePaginator
     {
-        $this->offsetClause = new OffsetClause(($page - 1) * $perPage);
-        if (!isset($this->limitClause)) {
-            $this->limitClause = new LimitClause($perPage);
+        try {
+            $this->offsetClause = new OffsetClause(($page - 1) * $perPage);
+            if (!isset($this->limitClause)) {
+                $this->limitClause = new LimitClause($perPage);
+            }
+            $query = $this->buildPaginatedQuery();
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return LengthAwarePaginator::empty($perPage);
+            }
+            $items = $statement->fetchAll(PDO::FETCH_ASSOC);
+            if (isset($this->objConverter)) {
+                $items = array_map($this->objConverter, $items);
+            }
+            $query = "SELECT COUNT(*) FROM {$this->fromClause->table} {$this->getJoinClause()} {$this->getWhereClause()}";
+            $statement = $this->pdo->prepare($query);
+            $statement->execute($this->bindingsManager->getBindingsOrNull());
+            $total = (int)$statement->fetchColumn();
+            return (new LengthAwarePaginator($items, $page, $perPage, $total))->setPageName($pageName);
+        } finally {
+            $this->resetBuilderState();
         }
-        $query = $this->buildPaginatedQuery();
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return LengthAwarePaginator::empty($perPage);
-        }
-        $items = $statement->fetchAll(PDO::FETCH_ASSOC);
-        if (isset($this->objConverter)) {
-            $items = array_map($this->objConverter, $items);
-        }
-        $query = "SELECT COUNT(*) FROM {$this->fromClause->table} {$this->getJoinClause()} {$this->getWhereClause()}";
-        $statement = $this->pdo->prepare($query);
-        $statement->execute($this->bindingsManager->getBindingsOrNull());
-        $total = (int)$statement->fetchColumn();
-        $this->resetBuilderState();
-        return (new LengthAwarePaginator($items, $page, $perPage, $total))->setPageName($pageName);
     }
 
     public function simplePaginate(int $page, int $perPage, string $pageName = 'page'): SimplePaginator
     {
-        $this->offsetClause = new OffsetClause(($page - 1) * $perPage);
-        if (!isset($this->limitClause)) {
-            $this->limitClause = new LimitClause($perPage);
+        try {
+            $this->offsetClause = new OffsetClause(($page - 1) * $perPage);
+            if (!isset($this->limitClause)) {
+                $this->limitClause = new LimitClause($perPage);
+            }
+            $query = $this->buildPaginatedQuery();
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return SimplePaginator::empty($perPage);
+            }
+            $items = $statement->fetchAll(PDO::FETCH_ASSOC);
+            if (isset($this->objConverter)) {
+                $items = array_map($this->objConverter, $items);
+            }
+            return (new SimplePaginator($items, $page, $perPage))->setPageName($pageName);
+        } finally {
+            $this->resetBuilderState();
         }
-        $query = $this->buildPaginatedQuery();
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return SimplePaginator::empty($perPage);
-        }
-        $items = $statement->fetchAll(PDO::FETCH_ASSOC);
-        if (isset($this->objConverter)) {
-            $items = array_map($this->objConverter, $items);
-        }
-        $this->resetBuilderState();
-        return (new SimplePaginator($items, $page, $perPage))->setPageName($pageName);
     }
 
     /**
@@ -174,13 +183,13 @@ class QueryBuilder
         return $this->selectClause->build() . $this->queryEndMarker();
     }
 
-    public function table(string $table): self
+    public function table(Expression|string $table): self
     {
         $this->fromClause = new FromClause($table);
         return $this;
     }
 
-    public function select(string ...$columns): self
+    public function select(Expression|string ...$columns): self
     {
         $this->columns = $columns;
         return $this;
@@ -193,82 +202,119 @@ class QueryBuilder
      */
     public function update(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
-        // convert values to place holder
-        $columnsToValues = array_map(function ($value) {
-            if (is_array($value)) {
-                throw new QueryBuilderException(QueryBuilderException::INVALID_QUERY, 'Value cannot be an array');
+        try {
+            // convert values to place holder
+            $columnsToValues = array_map(function ($value) {
+                if (is_array($value)) {
+                    throw new QueryBuilderException(QueryBuilderException::INVALID_QUERY, 'Value cannot be an array');
+                }
+                return $this->bindingsManager->add($value);
+            }, $columnsToValues);
+            $updateStatement = new UpdateStatement(
+                $this->fromClause->table,
+                $columnsToValues,
+                $this->joinClauses,
+                $this->whereQueryBuilder->getWhereClause()
+            );
+            $query = $updateStatement->build() . $this->queryEndMarker();
+            $resultedSql = $query;
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return null;
             }
-            return $this->bindingsManager->add($value);
-        }, $columnsToValues);
-        $updateStatement = new UpdateStatement(
-            $this->fromClause->table,
-            $columnsToValues,
-            $this->joinClauses,
-            $this->whereQueryBuilder->getWhereClause()
-        );
-        $query = $updateStatement->build() . $this->queryEndMarker();
-        $resultedSql = $query;
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return null;
+            return $statement->rowCount();
+        } finally {
+            $this->resetBuilderState();
         }
-        $this->resetBuilderState();
-        return $statement->rowCount();
     }
 
     public function delete(?string &$resultedSql = null): ?int
     {
-        $deleteStatement = new DeleteStatement(
-            $this->fromClause->table,
-            $this->joinClauses,
-            $this->whereQueryBuilder->getWhereClause()
-        );
-        $query = $deleteStatement->build() . $this->queryEndMarker();
-        $resultedSql = $query;
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return null;
+        try {
+            $deleteStatement = new DeleteStatement(
+                $this->fromClause->table,
+                $this->joinClauses,
+                $this->whereQueryBuilder->getWhereClause()
+            );
+            $query = $deleteStatement->build() . $this->queryEndMarker();
+            $resultedSql = $query;
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return null;
+            }
+            return $statement->rowCount();
+        } finally {
+            $this->resetBuilderState();
         }
-        $this->resetBuilderState();
-        return $statement->rowCount();
     }
 
     /**
      * @param array $columnsToValues an associative array of columns to values to be inserted
-     * @returns int the number of inserted rows or null on failure
+     * @param array|null $updateOnDuplicate
+     * @param string|null $resultedSql
+     * @return int|null the number of inserted rows or null on failure
+     */
+    public function upsert(array $columnsToValues, ?array $updateOnDuplicate = [], ?string &$resultedSql = null): ?int
+    {
+        try {
+            $this->bindingsManager->reset();
+            if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
+                // $columnsToValues is an array of arrays (multiple rows)
+                $columns = array_keys($columnsToValues[0]);
+                $values = array_map(function ($row) {
+                    // convert values to placeholders
+                    return array_map(function ($value) {
+                        return $this->bindingsManager->add($value);
+                    }, $row);
+                }, $columnsToValues);
+            } else {
+                // $columnsToValues is a single array (single row)
+                $columns = array_keys($columnsToValues);
+                $values = array_map(function ($value) {
+                    return $this->bindingsManager->add($value);
+                }, $columnsToValues);
+            }
+
+            if (!empty($updateOnDuplicate)) {
+                foreach ($updateOnDuplicate as $column => $value) {
+                    if (is_int($column)) {
+                        continue;
+                    }
+                    $updateOnDuplicate[$column] = $this->bindingsManager->add($value);
+                }
+            } elseif ($updateOnDuplicate === []) {
+                foreach ($columnsToValues as $column => $value) {
+                    $updateOnDuplicate[$column] = $this->bindingsManager->add($value);
+                }
+            }
+
+            $insertStatement = new InsertStatement(
+                $this->fromClause->table,
+                $columns,
+                $values,
+                $updateOnDuplicate
+            );
+            $query = $insertStatement->build() . $this->queryEndMarker();
+            $resultedSql = $query;
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return null;
+            }
+            return $statement->rowCount();
+
+        } finally {
+            $this->resetBuilderState();
+        }
+    }
+
+    /**
+     * @param array $columnsToValues an associative array of columns to values to be inserted
+     * @param string|null $resultedSql
+     * @return int|null the number of inserted rows or null on failure
      */
     public function insert(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
-        if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
-            // $columnsToValues is an array of arrays (multiple rows)
-            $columns = array_keys($columnsToValues[0]);
-            $values = array_map(function ($row) {
-                // convert values to placeholders
-                return array_map(function ($value) {
-                    return $this->bindingsManager->add($value);
-                }, $row);
-            }, $columnsToValues);
-        } else {
-            // $columnsToValues is a single array (single row)
-            $columns = array_keys($columnsToValues);
-            $values = array_map(function ($value) {
-                return $this->bindingsManager->add($value);
-            }, $columnsToValues);
-        }
-
-        $insertStatement = new InsertStatement(
-            $this->fromClause->table,
-            $columns,
-            $values
-        );
-        $query = $insertStatement->build() . $this->queryEndMarker();
-        $resultedSql = $query;
-        $statement = $this->pdo->prepare($query);
-        if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
-            return null;
-        }
-        $this->resetBuilderState();
-        return $statement->rowCount();
+        return $this->upsert($columnsToValues, null, $resultedSql);
     }
 
     public function distinct(): self
@@ -280,7 +326,7 @@ class QueryBuilder
     /**
      * @throws QueryBuilderException
      */
-    public function orderBy(string $column, string $type = 'ASC'): self
+    public function orderBy(Expression|string $column, string $type = 'ASC'): self
     {
         if (!OrderType::contains($type)) {
             throw new QueryBuilderException(QueryBuilderException::INVALID_ORDER_TYPE, 'Invalid order type ' . $type);
@@ -292,7 +338,7 @@ class QueryBuilder
         return $this;
     }
 
-    public function orderByDesc(string $column): self
+    public function orderByDesc(Expression|string $column): self
     {
         if (!isset($this->orderByClause)) {
             $this->orderByClause = new OrderByClause();
@@ -305,11 +351,11 @@ class QueryBuilder
      * @throws QueryBuilderException
      */
     public function join(
-        string         $table,
-        string|Closure $column1,
-        ?string        $operator = null,
-        ?string        $column2 = null,
-        string         $type = 'INNER'
+        Expression|string         $table,
+        Expression|string|Closure $column1,
+        ?string                   $operator = null,
+        Expression|string|null    $column2 = null,
+        string                    $type = 'INNER'
     ): self
     {
         if ($column1 instanceof Closure) {
@@ -331,10 +377,10 @@ class QueryBuilder
      * @throws QueryBuilderException
      */
     public function leftJoin(
-        string         $table,
-        string|Closure $column1,
-        ?string        $operator = null,
-        ?string        $column2 = null,
+        Expression|string         $table,
+        Expression|string|Closure $column1,
+        ?string                   $operator = null,
+        Expression|string|null    $column2 = null,
     ): self
     {
         $this->join($table, $column1, $operator, $column2, 'LEFT');
@@ -345,10 +391,10 @@ class QueryBuilder
      * @throws QueryBuilderException
      */
     public function rightJoin(
-        string         $table,
-        string|Closure $column1,
-        ?string        $operator = null,
-        ?string        $column2 = null,
+        Expression|string         $table,
+        Expression|string|Closure $column1,
+        ?string                   $operator = null,
+        Expression|string|null    $column2 = null,
     ): self
     {
         $this->join($table, $column1, $operator, $column2, 'RIGHT');
@@ -359,10 +405,10 @@ class QueryBuilder
      * @throws QueryBuilderException
      */
     public function fullJoin(
-        string         $table,
-        string|Closure $column1,
-        ?string        $operator = null,
-        ?string        $column2 = null,
+        Expression|string         $table,
+        Expression|string|Closure $column1,
+        ?string                   $operator = null,
+        Expression|string|null    $column2 = null,
     ): self
     {
         $this->join($table, $column1, $operator, $column2, 'FULL');
@@ -370,7 +416,7 @@ class QueryBuilder
     }
 
     public function where(
-        string|Closure             $column,
+        Expression|string|Closure  $column,
         ?string                    $operator = null,
         string|int|float|bool|null $value = null,
         bool                       $and = true
@@ -391,7 +437,7 @@ class QueryBuilder
     }
 
     public function whereLike(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value,
         bool                  $and = true
     ): self
@@ -401,7 +447,7 @@ class QueryBuilder
     }
 
     public function whereNotLike(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value,
         bool                  $and = true
     ): self
@@ -411,9 +457,9 @@ class QueryBuilder
     }
 
     public function whereIn(
-        string $column,
-        array  $values,
-        bool   $and = true
+        Expression|string $column,
+        array             $values,
+        bool              $and = true
     ): self
     {
         $this->whereQueryBuilder->whereIn($column, $values, $and);
@@ -421,9 +467,9 @@ class QueryBuilder
     }
 
     public function whereNotIn(
-        string $column,
-        array  $values,
-        bool   $and = true
+        Expression|string $column,
+        array             $values,
+        bool              $and = true
     ): self
     {
         $this->whereQueryBuilder->whereNotIn($column, $values, $and);
@@ -431,8 +477,8 @@ class QueryBuilder
     }
 
     public function whereNull(
-        string $column,
-        bool   $and = true
+        Expression|string $column,
+        bool              $and = true
     ): self
     {
         $this->whereQueryBuilder->whereNull($column, $and);
@@ -440,8 +486,8 @@ class QueryBuilder
     }
 
     public function whereNotNull(
-        string $column,
-        bool   $and = true
+        Expression|string $column,
+        bool              $and = true
     ): self
     {
         $this->whereQueryBuilder->whereNotNull($column, $and);
@@ -449,7 +495,7 @@ class QueryBuilder
     }
 
     public function whereBetween(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value1,
         string|int|float|bool $value2,
         bool                  $and = true
@@ -460,7 +506,7 @@ class QueryBuilder
     }
 
     public function whereNotBetween(
-        string                $column,
+        Expression|string     $column,
         string|int|float|bool $value1,
         string|int|float|bool $value2,
         bool                  $and = true
@@ -508,6 +554,11 @@ class QueryBuilder
         return ';';
     }
 
+    /**
+     * Allow for custom object conversion after fetching the results
+     * @param Closure $objConverter
+     * @return $this
+     */
     public function objectConverter(Closure $objConverter): self
     {
         $this->objConverter = $objConverter;
@@ -515,11 +566,12 @@ class QueryBuilder
     }
 
     /**
+     * Limit the number of results to 1 and return the first result
      * @throws QueryBuilderException
      */
     public function first(string ...$columns): mixed
     {
-        if (!isset($this->selectClause)) {
+        if (empty($this->columns)) {
             $this->select(...$columns);
         }
 
@@ -539,6 +591,7 @@ class QueryBuilder
     }
 
     /**
+     * Retrieve a single column from the result
      * @throws QueryBuilderException
      */
     public function pluck(string $column): array
@@ -548,8 +601,22 @@ class QueryBuilder
         return $result->pluck($column);
     }
 
+    /**
+     * Retrieve all the bound values
+     * @return array
+     */
     public function getValues(): array
     {
         return Collection::make($this->bindingsManager->getBindings())->values()->toArray();
+    }
+
+    /**
+     * Allow for raw expressions in the query
+     * @param string $value
+     * @return Expression
+     */
+    public function raw(string $value): Expression
+    {
+        return Expression::make($value);
     }
 }
