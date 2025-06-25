@@ -6,6 +6,10 @@ Fast, lightweight, and simple SQL query builder that does not depend on any thir
 - Internal bindings manager, so you do not have to worry about binding your values.
 - Support adding multiple and nested conditions to the Where and the Join clauses.
 - Support Pagination.
+- Schema creation helpers.
+- Sub-query support in Where and Join clauses.
+- Returning clause for insert and update statements.
+- Force updates and deletes when needed.
 ## Installation
 The recommended way to install the QueryBuilder is through [Composer](http://getcomposer.org). 
 ```sh
@@ -67,11 +71,11 @@ $result = $qb->table('users')
 ```
 ## TODOs
 - [x] ~~Support Update, Delete, Insert~~
-- [ ] Support Creating Schemas
+- [x] Support Creating Schemas
 - [x] ~~Add pluck method~~
-- [ ] Add support for sub-queries inside the Where and Join clauses
+- [x] Add support for sub-queries inside the Where and Join clauses
 - [x] ~~Implement a Collection class and make it the return type of get()~~
-- [ ] Add a `returning` method to the query allowing you to return columns of inserted/updated row(s)
+- [x] Add a `returning` method to the query allowing you to return columns of inserted/updated row(s)
 - [ ] Add support for different types of databases and refactor code, so it is easy to do so
 - [x] ~~Add support for Transactions~~
 

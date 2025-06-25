@@ -486,6 +486,40 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals('Sarah', $name);
     }
 
+    public function testForceUpdate()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        $builder
+            ->table('users')
+            ->force()
+            ->update(['name' => 'NoWhere'], $query);
+        $this->assertEquals('UPDATE `users` SET `name` = :v1;', $query);
+    }
+
+    public function testReturningInsert()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        $builder
+            ->table('users')
+            ->returning('id')
+            ->insert(['name' => 'X'], $query);
+        $this->assertEquals('INSERT INTO `users` (`name`) VALUES (:v1) RETURNING `id`;', $query);
+    }
+
+    public function testReturningUpdate()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        $builder
+            ->table('users')
+            ->where('id', '=', 1)
+            ->returning('name')
+            ->update(['name' => 'Y'], $query);
+        $this->assertEquals('UPDATE `users` SET `name` = :v2 WHERE `id` = :v1 RETURNING `name`;', $query);
+    }
+
     public function testDelete()
     {
         $builder = new QueryBuilder($this->pdo);
@@ -500,6 +534,17 @@ class QueryBuilderTest extends TestCase
         $this->assertNull($name);
         $name = $builder->table('users')->where('id', '=', 2)->first('name');
         $this->assertNull($name);
+    }
+
+    public function testForceDelete()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        $builder
+            ->table('users')
+            ->force()
+            ->delete($query);
+        $this->assertEquals('DELETE FROM `users`;', $query);
     }
 
     public function testEmptyWhereIn()
@@ -753,7 +798,7 @@ class QueryBuilderTest extends TestCase
             ->table('`users`')
             ->select('`id`', '`name`')
             ->toSql();
-        $this->assertEquals('SELECT ``id``, ``name`` FROM ``users``;', $query);
+        $this->assertEquals('SELECT ```id```, ```name``` FROM ```users```;', $query);
     }
 
     public function testSpaceEscaping() {
@@ -762,6 +807,16 @@ class QueryBuilderTest extends TestCase
             ->table(' users ')
             ->select(' id  ` uid`', 'name ')
             ->toSql();
-        $this->assertEquals('SELECT ` id` `` uid``, `name ` FROM ` users `;', $query);
+        $this->assertEquals('SELECT ` id` ``` uid```, `name ` FROM ` users `;', $query);
+    }
+
+    public function testBacktickEscaping()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('user`table')
+            ->select('na`me')
+            ->toSql();
+        $this->assertEquals('SELECT `na``me` FROM `user``table`;', $query);
     }
 }

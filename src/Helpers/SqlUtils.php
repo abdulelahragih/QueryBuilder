@@ -77,6 +77,7 @@ class SqlUtils
             if ($part === '*') { // That is in case of SELECT tableA.*, tableB.id...
                 return $part;
             }
+            $part = str_replace('`', '``', $part);
             return '`' . $part . '`';
         }, $parts);
 

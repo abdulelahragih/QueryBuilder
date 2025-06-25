@@ -14,16 +14,27 @@ class InsertStatement implements Statement
         private readonly Expression|string $table,
         private readonly array             $columns,
         private readonly array             $values,
-        private readonly ?array            $updateOnDuplicateKey = null
+        private readonly ?array            $updateOnDuplicateKey = null,
+        private ?array                    $returning = null
     )
     {
+    }
+
+    public function setReturning(array $columns): void
+    {
+        $this->returning = $columns;
     }
 
     public function build(): string
     {
         $columns = SqlUtils::joinTo($this->columns, ', ', fn($column) => SqlUtils::quoteIdentifier($column));
-        return 'INSERT INTO ' . SqlUtils::quoteIdentifier($this->table) . ' (' . $columns . ') VALUES ' .
+        $query = 'INSERT INTO ' . SqlUtils::quoteIdentifier($this->table) . ' (' . $columns . ') VALUES ' .
             $this->buildValuesClause($this->values) . $this->buildOnDuplicateKeyUpdateClause();
+        if ($this->returning !== null) {
+            $returning = SqlUtils::joinTo($this->returning, ', ', fn($c) => SqlUtils::quoteIdentifier($c));
+            $query .= ' RETURNING ' . $returning;
+        }
+        return $query;
     }
 
     private function buildValuesClause(array $values): string

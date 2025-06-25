@@ -45,6 +45,8 @@ class QueryBuilder
     private BindingsManager $bindingsManager;
     private ?Closure $objConverter = null;
     private bool $isDistinct = false;
+    private bool $forceExecution = false;
+    private ?array $returningColumns = null;
 
     public function __construct(PDO $pdo)
     {
@@ -65,6 +67,8 @@ class QueryBuilder
         $this->offsetClause = null;
         $this->orderByClause = null;
         $this->objConverter = null;
+        $this->forceExecution = false;
+        $this->returningColumns = null;
     }
 
     /**
@@ -216,6 +220,10 @@ class QueryBuilder
                 $this->joinClauses,
                 $this->whereQueryBuilder->getWhereClause()
             );
+            $updateStatement->setForceUpdate($this->forceExecution);
+            if ($this->returningColumns !== null) {
+                $updateStatement->setReturning($this->returningColumns);
+            }
             $query = $updateStatement->build() . $this->queryEndMarker();
             $resultedSql = $query;
             $statement = $this->pdo->prepare($query);
@@ -236,6 +244,7 @@ class QueryBuilder
                 $this->joinClauses,
                 $this->whereQueryBuilder->getWhereClause()
             );
+            $deleteStatement->setForceDelete($this->forceExecution);
             $query = $deleteStatement->build() . $this->queryEndMarker();
             $resultedSql = $query;
             $statement = $this->pdo->prepare($query);
@@ -294,6 +303,9 @@ class QueryBuilder
                 $values,
                 $updateOnDuplicate
             );
+            if ($this->returningColumns !== null) {
+                $insertStatement->setReturning($this->returningColumns);
+            }
             $query = $insertStatement->build() . $this->queryEndMarker();
             $resultedSql = $query;
             $statement = $this->pdo->prepare($query);
@@ -565,6 +577,18 @@ class QueryBuilder
         return $this;
     }
 
+    public function force(bool $force = true): self
+    {
+        $this->forceExecution = $force;
+        return $this;
+    }
+
+    public function returning(string ...$columns): self
+    {
+        $this->returningColumns = $columns;
+        return $this;
+    }
+
     /**
      * Limit the number of results to 1 and return the first result
      * @throws QueryBuilderException
@@ -618,5 +642,13 @@ class QueryBuilder
     public function raw(string $value): Expression
     {
         return Expression::make($value);
+    }
+
+    public function subQuery(Closure $callback): Expression
+    {
+        $builder = new self($this->pdo);
+        $callback($builder);
+        $sql = rtrim($builder->toSql(), ';');
+        return Expression::make('(' . $sql . ')');
     }
 }

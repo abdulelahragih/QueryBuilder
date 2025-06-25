@@ -22,6 +22,6 @@ class QueryBuilderException extends Exception
 
     public function __construct(int $errorCode, string $message = '')
     {
-        parent::__construct($message);
+        parent::__construct($message, $errorCode);
     }
 }

@@ -4,6 +4,7 @@ namespace Abdulelahragih\QueryBuilder;
 
 use Abdulelahragih\QueryBuilder\Data\Collection;
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
+use Abdulelahragih\QueryBuilder\Schema\SchemaBuilder;
 use Closure;
 use Exception;
 use PDO;
@@ -11,6 +12,7 @@ use PDO;
 class DB
 {
     private PDO $pdo;
+    private ?Closure $objConverter = null;
 
     public function __construct(PDO $pdo)
     {
@@ -90,5 +92,16 @@ class DB
     public function raw(string $value): Expression
     {
         return Expression::make($value);
+    }
+
+    public function schema(): SchemaBuilder
+    {
+        return new SchemaBuilder($this->pdo);
+    }
+
+    public function objectConverter(Closure $converter): self
+    {
+        $this->objConverter = $converter;
+        return $this;
     }
 }

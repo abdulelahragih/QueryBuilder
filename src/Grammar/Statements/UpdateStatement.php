@@ -26,7 +26,8 @@ class UpdateStatement implements Clause
         public readonly ?array             $columnsToValues = null,
         private readonly ?array            $joinClause = null,
         private readonly ?WhereClause      $whereClause = null,
-        private bool                       $forceUpdate = false
+        private bool                       $forceUpdate = false,
+        private ?array                     $returning = null
     )
     {
     }
@@ -37,6 +38,11 @@ class UpdateStatement implements Clause
     public function setForceUpdate(bool $forceUpdate): void
     {
         $this->forceUpdate = $forceUpdate;
+    }
+
+    public function setReturning(array $columns): void
+    {
+        $this->returning = $columns;
     }
 
     /**
@@ -51,10 +57,15 @@ class UpdateStatement implements Clause
                     'Update statement without where clause is not allowed. Use force(true) to force update.');
             }
         }
-        return 'UPDATE ' . SqlUtils::quoteIdentifier($this->table) . ' SET ' .
+        $query = 'UPDATE ' . SqlUtils::quoteIdentifier($this->table) . ' SET ' .
             $this->buildSetClause($this->columnsToValues) .
             $this->buildOrEmpty($this->joinClause) .
             $this->buildOrEmpty($this->whereClause);
+        if ($this->returning !== null) {
+            $returning = SqlUtils::joinTo($this->returning, ', ', fn($c) => SqlUtils::quoteIdentifier($c));
+            $query .= ' RETURNING ' . $returning;
+        }
+        return $query;
     }
 
     private function buildSetClause(array $columnsToValues): string
