@@ -6,6 +6,7 @@ use Abdulelahragih\QueryBuilder\Builders\JoinClauseBuilder;
 use Abdulelahragih\QueryBuilder\Builders\WhereQueryBuilder;
 use Abdulelahragih\QueryBuilder\QueryBuilder;
 use Abdulelahragih\QueryBuilder\Tests\Traits\TestTrait;
+use Abdulelahragih\QueryBuilder\Tests\Stubs\MySQLPDO;
 use Error;
 use Exception;
 use PHPUnit\Framework\TestCase;
@@ -818,5 +819,15 @@ class QueryBuilderTest extends TestCase
             ->select('na`me')
             ->toSql();
         $this->assertEquals('SELECT `na``me` FROM `user``table`;', $query);
+    }
+
+    public function testReturningUnsupportedDriver()
+    {
+        $pdo = new \Abdulelahragih\QueryBuilder\Tests\Stubs\MySQLPDO();
+        $this->seedFakeDataWithPdo($pdo);
+        $builder = new QueryBuilder($pdo);
+        $this->expectException(\Abdulelahragih\QueryBuilder\Data\QueryBuilderException::class);
+        $this->expectExceptionCode(\Abdulelahragih\QueryBuilder\Data\QueryBuilderException::UNSUPPORTED_FEATURE);
+        $builder->table('users')->returning('id')->insert(['name' => 'A']);
     }
 }

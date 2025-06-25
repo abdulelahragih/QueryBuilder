@@ -222,6 +222,12 @@ class QueryBuilder
             );
             $updateStatement->setForceUpdate($this->forceExecution);
             if ($this->returningColumns !== null) {
+                if (!$this->supportsReturning()) {
+                    throw new QueryBuilderException(
+                        QueryBuilderException::UNSUPPORTED_FEATURE,
+                        'RETURNING is not supported by the current driver'
+                    );
+                }
                 $updateStatement->setReturning($this->returningColumns);
             }
             $query = $updateStatement->build() . $this->queryEndMarker();
@@ -304,6 +310,12 @@ class QueryBuilder
                 $updateOnDuplicate
             );
             if ($this->returningColumns !== null) {
+                if (!$this->supportsReturning()) {
+                    throw new QueryBuilderException(
+                        QueryBuilderException::UNSUPPORTED_FEATURE,
+                        'RETURNING is not supported by the current driver'
+                    );
+                }
                 $insertStatement->setReturning($this->returningColumns);
             }
             $query = $insertStatement->build() . $this->queryEndMarker();
@@ -587,6 +599,16 @@ class QueryBuilder
     {
         $this->returningColumns = $columns;
         return $this;
+    }
+
+    private function supportsReturning(): bool
+    {
+        $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        if ($driver === 'mysql') {
+            $version = $this->pdo->getAttribute(PDO::ATTR_SERVER_VERSION);
+            return stripos($version, 'mariadb') !== false;
+        }
+        return in_array($driver, ['sqlite', 'pgsql'], true);
     }
 
     /**

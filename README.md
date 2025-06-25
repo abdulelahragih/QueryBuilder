@@ -8,7 +8,7 @@ Fast, lightweight, and simple SQL query builder that does not depend on any thir
 - Support Pagination.
 - Schema creation helpers.
 - Sub-query support in Where and Join clauses.
-- Returning clause for insert and update statements.
+- Returning clause for insert and update statements (SQLite, PostgreSQL and MariaDB only).
 - Force updates and deletes when needed.
 ## Installation
 The recommended way to install the QueryBuilder is through [Composer](http://getcomposer.org). 
