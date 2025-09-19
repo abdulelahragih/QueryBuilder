@@ -27,11 +27,4 @@ class WhereClause implements Clause
         $this->conditionClauses->addCondition($conditionsGroup);
     }
 
-    public function build(): string
-    {
-        if (empty($this->conditionClauses->getConditions())) {
-            return '';
-        }
-        return 'WHERE ' . $this->conditionClauses->build();
-    }
 }

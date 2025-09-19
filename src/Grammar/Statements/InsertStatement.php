@@ -2,61 +2,42 @@
 
 namespace Abdulelahragih\QueryBuilder\Grammar\Statements;
 
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\OnConflictClause;
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
-use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
-use Abdulelahragih\QueryBuilder\Traits\CanBuildClause;
-
 class InsertStatement implements Statement
 {
-    use CanBuildClause;
-
     public function __construct(
         private readonly Expression|string $table,
         private readonly array             $columns,
         private readonly array             $values,
-        private readonly ?array            $updateOnDuplicateKey = null
+        private readonly ?array            $updateOnDuplicateKey = null,
+        private readonly ?OnConflictClause $onConflictClause = null
     )
     {
     }
 
-    public function build(): string
+    public function getTable(): Expression|string
     {
-        $columns = SqlUtils::joinTo($this->columns, ', ', fn($column) => SqlUtils::quoteIdentifier($column));
-        return 'INSERT INTO ' . SqlUtils::quoteIdentifier($this->table) . ' (' . $columns . ') VALUES ' .
-            $this->buildValuesClause($this->values) . $this->buildOnDuplicateKeyUpdateClause();
+        return $this->table;
     }
 
-    private function buildValuesClause(array $values): string
+    public function getColumns(): array
     {
-        $valueClauses = [];
-        if (!empty($values) && is_array(reset($values))) {
-            // $values is an array of arrays (multiple rows)
-            foreach ($values as $row) {
-                $rowValues = implode(', ', $row);
-                $valueClauses[] = '(' . $rowValues . ')';
-            }
-        } else {
-            // $values is a single array (single row)
-            $rowValues = implode(', ', $values);
-            $valueClauses[] = '(' . $rowValues . ')';
-        }
-        return implode(', ', $valueClauses);
+        return $this->columns;
     }
 
-    private function buildOnDuplicateKeyUpdateClause(): string
+    public function getValues(): array
     {
-        if (empty($this->updateOnDuplicateKey)) {
-            return '';
-        }
-        $index = 0;
-        $updateColumns = SqlUtils::joinToAssociative($this->updateOnDuplicateKey, ', ', function ($column, $value) use (&$index) {
-            if (is_int($column) && $column === $index) {
-                $index++;
-                return SqlUtils::quoteIdentifier($value) . ' = ' . 'VALUES(' . SqlUtils::quoteIdentifier($value) . ')';
-            }
-            return SqlUtils::quoteIdentifier($column) . ' = ' . $value;
-        });
-        return ' ON DUPLICATE KEY UPDATE ' . $updateColumns;
+        return $this->values;
+    }
 
+    public function getUpdateOnDuplicateKey(): ?array
+    {
+        return $this->updateOnDuplicateKey;
+    }
+
+    public function getOnConflictClause(): ?OnConflictClause
+    {
+        return $this->onConflictClause;
     }
 }

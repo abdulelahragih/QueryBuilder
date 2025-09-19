@@ -39,12 +39,11 @@ class SqlUtils
     /**
      * Escapes and quotes an identifier for SQL queries.
      *
-     * Handles dotted identifiers like "user.id" and converts them into "`user`.`id`".
-     *
      * @param Expression|string $identifier The SQL identifier to sanitize such as table or column name.
+     * @param string $quoteCharacter The character used for quoting (default is backtick `).
      * @return string The sanitized identifier.
      */
-    public static function quoteIdentifier(Expression|string $identifier): string
+    public static function quoteIdentifier(Expression|string $identifier, string $quoteCharacter = '`'): string
     {
         if ($identifier instanceof Expression) {
             return $identifier->getValue();
@@ -73,11 +72,11 @@ class SqlUtils
         $parts = explode('.', $identifier);
 
         // Quote each part and join them with `.`
-        $quotedParts = array_map(function ($part) {
+        $quotedParts = array_map(function ($part) use ($quoteCharacter) {
             if ($part === '*') { // That is in case of SELECT tableA.*, tableB.id...
                 return $part;
             }
-            return '`' . $part . '`';
+            return $quoteCharacter . $part . $quoteCharacter;
         }, $parts);
 
         return implode('.', $quotedParts);

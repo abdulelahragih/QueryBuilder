@@ -9,13 +9,8 @@ use Abdulelahragih\QueryBuilder\Grammar\Clauses\LimitClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OffsetClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\WhereClause;
-use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
-use Abdulelahragih\QueryBuilder\Traits\CanBuildClause;
-
 class SelectStatement implements Statement
 {
-    use CanBuildClause;
-
     /**
      * @param FromClause|null $fromClause
      * @param array|null $columns
@@ -47,22 +42,36 @@ class SelectStatement implements Statement
         return $this->distinct;
     }
 
-    public function build(): string
+    public function getFromClause(): ?FromClause
     {
-        return $this->buildSelectQuery();
+        return $this->fromClause;
     }
 
-    private function buildSelectQuery(): string
+    /**
+     * @return JoinClause[]|null
+     */
+    public function getJoinClauses(): ?array
     {
-        $distinct = $this->distinct ? 'DISTINCT ' : '';
-        $columns = empty($this->columns) ? '*' :
-            SqlUtils::joinTo($this->columns, ', ', fn($column) => SqlUtils::quoteIdentifier($column));
-        return "SELECT " . $distinct . $columns .
-            $this->buildOrEmpty($this->fromClause) .
-            $this->buildOrEmpty($this->joinClause) .
-            $this->buildOrEmpty($this->whereClause) .
-            $this->buildOrEmpty($this->orderByClause) .
-            $this->buildOrEmpty($this->limitClause) .
-            $this->buildOrEmpty($this->offsetClause);
+        return $this->joinClause;
+    }
+
+    public function getWhereClause(): ?WhereClause
+    {
+        return $this->whereClause;
+    }
+
+    public function getLimitClause(): ?LimitClause
+    {
+        return $this->limitClause;
+    }
+
+    public function getOffsetClause(): ?OffsetClause
+    {
+        return $this->offsetClause;
+    }
+
+    public function getOrderByClause(): ?OrderByClause
+    {
+        return $this->orderByClause;
     }
 }

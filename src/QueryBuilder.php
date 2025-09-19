@@ -13,6 +13,10 @@ use Abdulelahragih\QueryBuilder\Grammar\Clauses\JoinClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\LimitClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OffsetClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\OnConflictClause;
+use Abdulelahragih\QueryBuilder\Grammar\Dialects\Dialect;
+use Abdulelahragih\QueryBuilder\Grammar\Dialects\MySqlDialect;
+use Abdulelahragih\QueryBuilder\Grammar\Dialects\PostgresDialect;
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\DeleteStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\InsertStatement;
@@ -31,6 +35,7 @@ class QueryBuilder
 {
 
     private PDO $pdo;
+    private Dialect $dialect;
     private array $columns = [];
     private ?SelectStatement $selectClause = null;
     private WhereQueryBuilder $whereQueryBuilder;
@@ -45,12 +50,20 @@ class QueryBuilder
     private BindingsManager $bindingsManager;
     private ?Closure $objConverter = null;
     private bool $isDistinct = false;
+    private ?array $onConflictConfig = null;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, ?Dialect $dialect = null)
     {
         $this->pdo = $pdo;
+        $this->dialect = $dialect ?? $this->detectDialect($pdo);
         $this->bindingsManager = new BindingsManager();
         $this->whereQueryBuilder = new WhereQueryBuilder($this->bindingsManager);
+    }
+
+    public function setDialect(Dialect $dialect): self
+    {
+        $this->dialect = $dialect;
+        return $this;
     }
 
     private function resetBuilderState(): void
@@ -65,6 +78,7 @@ class QueryBuilder
         $this->offsetClause = null;
         $this->orderByClause = null;
         $this->objConverter = null;
+        $this->onConflictConfig = null;
     }
 
     /**
@@ -104,7 +118,13 @@ class QueryBuilder
             if (isset($this->objConverter)) {
                 $items = array_map($this->objConverter, $items);
             }
-            $query = "SELECT COUNT(*) FROM {$this->fromClause->table} {$this->getJoinClause()} {$this->getWhereClause()}";
+            $countSelect = new SelectStatement(
+                $this->fromClause,
+                [Expression::make('COUNT(*)')],
+                $this->joinClauses,
+                $this->whereQueryBuilder->getWhereClause()
+            );
+            $query = $this->dialect->compileSelect($countSelect);
             $statement = $this->pdo->prepare($query);
             $statement->execute($this->bindingsManager->getBindingsOrNull());
             $total = (int)$statement->fetchColumn();
@@ -155,7 +175,7 @@ class QueryBuilder
         if (!isset($this->selectClause)) {
             $this->selectClause = $this->createSelectStatement();
         }
-        return $this->selectClause->build() . $this->queryEndMarker();
+        return $this->dialect->compileSelect($this->selectClause) . $this->queryEndMarker();
     }
 
     private function createSelectStatement(): SelectStatement
@@ -180,7 +200,7 @@ class QueryBuilder
         if (!isset($this->selectClause)) {
             $this->selectClause = $this->createSelectStatement();
         }
-        return $this->selectClause->build() . $this->queryEndMarker();
+        return $this->dialect->compileSelect($this->selectClause) . $this->queryEndMarker();
     }
 
     public function table(Expression|string $table): self
@@ -216,7 +236,7 @@ class QueryBuilder
                 $this->joinClauses,
                 $this->whereQueryBuilder->getWhereClause()
             );
-            $query = $updateStatement->build() . $this->queryEndMarker();
+            $query = $this->dialect->compileUpdate($updateStatement) . $this->queryEndMarker();
             $resultedSql = $query;
             $statement = $this->pdo->prepare($query);
             if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
@@ -236,7 +256,7 @@ class QueryBuilder
                 $this->joinClauses,
                 $this->whereQueryBuilder->getWhereClause()
             );
-            $query = $deleteStatement->build() . $this->queryEndMarker();
+            $query = $this->dialect->compileDelete($deleteStatement) . $this->queryEndMarker();
             $resultedSql = $query;
             $statement = $this->pdo->prepare($query);
             if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
@@ -288,13 +308,16 @@ class QueryBuilder
                 }
             }
 
+            $onConflictClause = $this->buildOnConflictClause($updateOnDuplicate);
+
             $insertStatement = new InsertStatement(
                 $this->fromClause->table,
                 $columns,
                 $values,
-                $updateOnDuplicate
+                $updateOnDuplicate,
+                $onConflictClause
             );
-            $query = $insertStatement->build() . $this->queryEndMarker();
+            $query = $this->dialect->compileInsert($insertStatement) . $this->queryEndMarker();
             $resultedSql = $query;
             $statement = $this->pdo->prepare($query);
             if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
@@ -314,12 +337,40 @@ class QueryBuilder
      */
     public function insert(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
-        return $this->upsert($columnsToValues, null, $resultedSql);
+        $updateOnDuplicate = null;
+        if ($this->onConflictConfig !== null && $this->onConflictConfig['doNothing'] === false) {
+            $updateOnDuplicate = [];
+        }
+
+        return $this->upsert($columnsToValues, $updateOnDuplicate, $resultedSql);
     }
 
     public function distinct(): self
     {
         $this->isDistinct = true;
+        return $this;
+    }
+
+    public function onConflictDoNothing(array|string $columns): self
+    {
+        $this->onConflictConfig = [
+            'columns' => $this->normalizeConflictColumns($columns),
+            'assignments' => null,
+            'doNothing' => true,
+        ];
+
+        return $this;
+    }
+
+    public function onConflictDoUpdate(array|string $columns, ?array $assignments = []): self
+    {
+        $assignments ??= [];
+        $this->onConflictConfig = [
+            'columns' => $this->normalizeConflictColumns($columns),
+            'assignments' => $assignments,
+            'doNothing' => false,
+        ];
+
         return $this;
     }
 
@@ -530,23 +581,107 @@ class QueryBuilder
 
     public function getWhereClause(): string
     {
-        if ($this->whereQueryBuilder->isEmpty()) {
+        $whereClause = $this->whereQueryBuilder->getWhereClause();
+        if (empty($whereClause->conditionClauses->getConditions())) {
             return '';
         }
-        return ' ' . $this->whereQueryBuilder->build();
+
+        return ' ' . $this->dialect->compileWhereClause($whereClause);
     }
 
-    private function getJoinClause(): string
+    /**
+     * @param array|string $columns
+     * @return array<int, Expression|string>
+     */
+    private function normalizeConflictColumns(array|string $columns): array
     {
-        if (empty($this->joinClauses)) {
-            return '';
+        $columns = is_array($columns) ? $columns : [$columns];
+        if (empty($columns)) {
+            throw new InvalidArgumentException('On conflict requires at least one target column.');
         }
 
-        $joinClauses = '';
-        foreach ($this->joinClauses as $joinClause) {
-            $joinClauses .= $joinClause->build() . "\n";
+        foreach ($columns as $column) {
+            if (!$column instanceof Expression && !is_string($column)) {
+                throw new InvalidArgumentException('On conflict columns must be strings or Expression instances.');
+            }
         }
-        return ' ' . trim($joinClauses);
+
+        return $columns;
+    }
+
+    private function buildOnConflictClause(?array $updateOnDuplicate): ?OnConflictClause
+    {
+        if ($this->onConflictConfig === null) {
+            return null;
+        }
+
+        $columns = $this->onConflictConfig['columns'];
+        $assignmentsConfig = $this->onConflictConfig['assignments'];
+        $doNothing = $this->onConflictConfig['doNothing'];
+
+        if ($doNothing) {
+            return new OnConflictClause($columns, null);
+        }
+
+        if ($assignmentsConfig === []) {
+            if (empty($updateOnDuplicate)) {
+                throw new InvalidArgumentException('Unable to infer on conflict assignments; provide explicit assignments.');
+            }
+            $assignments = $this->filterDefaultConflictAssignments($updateOnDuplicate, $columns);
+            return new OnConflictClause($columns, $assignments);
+        }
+
+        $assignments = [];
+        foreach ($assignmentsConfig as $column => $value) {
+            if (is_int($column)) {
+                throw new InvalidArgumentException('On conflict assignments must use column names as keys.');
+            }
+
+            if (!is_string($column)) {
+                throw new InvalidArgumentException('On conflict assignment keys must be column names.');
+            }
+
+            if ($value instanceof Expression) {
+                $assignments[$column] = $value;
+                continue;
+            }
+
+            if (is_string($value) && str_starts_with($value, ':')) {
+                $assignments[$column] = $value;
+                continue;
+            }
+
+            $assignments[$column] = $this->bindingsManager->add($value);
+        }
+
+        if (empty($assignments)) {
+            throw new InvalidArgumentException('On conflict update requires at least one assignment.');
+        }
+
+        return new OnConflictClause($columns, $assignments);
+    }
+
+    private function detectDialect(PDO $pdo): Dialect
+    {
+        $driverName = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        return $driverName === 'pgsql' ? new PostgresDialect() : new MySqlDialect();
+    }
+
+    /**
+     * @param array<string, Expression|string> $assignments
+     * @param array<int, Expression|string> $conflictColumns
+     * @return array<string, Expression|string>
+     */
+    private function filterDefaultConflictAssignments(array $assignments, array $conflictColumns): array
+    {
+        $columnNames = array_filter($conflictColumns, static fn($column) => is_string($column));
+        if (empty($columnNames)) {
+            return $assignments;
+        }
+
+        $filtered = array_diff_key($assignments, array_flip($columnNames));
+
+        return empty($filtered) ? $assignments : $filtered;
     }
 
     private function queryEndMarker(): string

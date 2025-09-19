@@ -3,6 +3,7 @@
 namespace Abdulelahragih\QueryBuilder;
 
 use Abdulelahragih\QueryBuilder\Data\Collection;
+use Abdulelahragih\QueryBuilder\Grammar\Dialects\Dialect;
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Closure;
 use Exception;
@@ -11,10 +12,12 @@ use PDO;
 class DB
 {
     private PDO $pdo;
+    private Dialect $dialect;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, ?Dialect $dialect = null)
     {
         $this->pdo = $pdo;
+        $this->dialect = $dialect;
     }
 
     /**
@@ -25,7 +28,13 @@ class DB
         if (!isset($this->pdo)) {
             throw new Exception('Database connection not initialized. Please call DB::init() first.');
         }
-        return (new QueryBuilder($this->pdo))->table($table);
+        return (new QueryBuilder($this->pdo, $this->dialect))->table($table);
+    }
+
+    public function setDialect(Dialect $dialect): self
+    {
+        $this->dialect = $dialect;
+        return $this;
     }
 
     public function getPdo(): PDO

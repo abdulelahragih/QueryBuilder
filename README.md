@@ -6,6 +6,7 @@ Fast, lightweight, and simple SQL query builder that does not depend on any thir
 - Internal bindings manager, so you do not have to worry about binding your values.
 - Support adding multiple and nested conditions to the Where and the Join clauses.
 - Support Pagination.
+- Dialect-aware SQL generation.
 ## Installation
 The recommended way to install the QueryBuilder is through [Composer](http://getcomposer.org). 
 ```sh
@@ -42,6 +43,31 @@ $paginator = $qb->table('users')
    ->where('role_id', '=', 1)
    ->simplePaginate($page, $limit);
 ```
+
+## PostgreSQL upserts
+
+When you work against PostgreSQL you can configure the builder with the `PostgresDialect` and use the fluent helpers to generate `ON CONFLICT` clauses:
+
+```php
+use Abdulelahragih\QueryBuilder\Grammar\Dialects\PostgresDialect;
+use Abdulelahragih\QueryBuilder\Grammar\Expression;
+
+$qb = new \Abdulelahragih\QueryBuilder\QueryBuilder($pdo, new PostgresDialect());
+
+// DO NOTHING
+$qb->table('users')
+   ->onConflictDoNothing('id')
+   ->insert(['id' => 42, 'name' => 'Douglas']);
+
+// DO UPDATE
+$qb->table('users')
+   ->onConflictDoUpdate('id', ['name' => Expression::make('EXCLUDED.name')])
+   ->insert(['id' => 42, 'name' => 'Douglas']);
+```
+
+MySQL continues to support `ON DUPLICATE KEY UPDATE` through the same `upsert` API.
+
+When you omit the dialect, the builder inspects `PDO::ATTR_DRIVER_NAME` and automatically selects `PostgresDialect` for `pgsql` connections, falling back to MySQL-style quoting for everything else.
 
 ## Nested Where
 You can add nested conditions to the Where clause by passing a closure to the `where` method. <br>

@@ -3,7 +3,6 @@
 namespace Abdulelahragih\QueryBuilder\Grammar\Clauses;
 
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
-use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
 use Abdulelahragih\QueryBuilder\Types\OrderType;
 
 class OrderByClause implements Clause
@@ -21,20 +20,8 @@ class OrderByClause implements Clause
         $this->columnsAndOrderTypes[] = [$name, $orderType];
     }
 
-
-    public function build(): string
+    public function getColumns(): array
     {
-        if (empty($this->columnsAndOrderTypes)) {
-            return '';
-        }
-        return 'ORDER BY ' . implode(
-                ', ',
-                array_map(
-                    function ($item) {
-                        return SqlUtils::quoteIdentifier($item[0]) . ' ' . $item[1]->value;
-                    },
-                    $this->columnsAndOrderTypes
-                )
-            );
+        return $this->columnsAndOrderTypes;
     }
 }
