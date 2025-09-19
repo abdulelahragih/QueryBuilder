@@ -59,11 +59,11 @@ class SqlUtils
             }
 
             // Quote the identifier and alias separately
-            return SqlUtils::quoteIdentifier($identifier) . ' AS ' . SqlUtils::quoteIdentifier($alias);
+            return SqlUtils::quoteIdentifier($identifier, $quoteCharacter) . ' AS ' . SqlUtils::quoteIdentifier($alias, $quoteCharacter);
         } elseif (SqlUtils::isAliasedWithSpace($identifier, $matches)) {
             // Split the identifier and alias by the last space
-            $quotedIdentifier = self::quoteIdentifier($matches[1]);
-            $quotedAlias = self::quoteIdentifier($matches[2]);
+            $quotedIdentifier = self::quoteIdentifier($matches[1], $quoteCharacter);
+            $quotedAlias = self::quoteIdentifier($matches[2], $quoteCharacter);
 
             return $quotedIdentifier . ' ' . $quotedAlias;
         }
