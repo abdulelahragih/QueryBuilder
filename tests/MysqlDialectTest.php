@@ -4,13 +4,14 @@ namespace Abdulelahragih\QueryBuilder\Tests;
 
 use Abdulelahragih\QueryBuilder\Builders\JoinClauseBuilder;
 use Abdulelahragih\QueryBuilder\Builders\WhereQueryBuilder;
+use Abdulelahragih\QueryBuilder\Data\QueryBuilderException;
 use Abdulelahragih\QueryBuilder\QueryBuilder;
 use Abdulelahragih\QueryBuilder\Tests\Traits\TestTrait;
 use Error;
 use Exception;
 use PHPUnit\Framework\TestCase;
 
-class QueryBuilderTest extends TestCase
+class MysqlDialectTest extends TestCase
 {
     use TestTrait;
 
@@ -311,7 +312,6 @@ class QueryBuilderTest extends TestCase
         );
     }
 
-
     public function testNestedJoinConditions()
     {
         $builder = new QueryBuilder($this->pdo);
@@ -486,6 +486,15 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals('Sarah', $name);
     }
 
+    public function testUpdateWithoutWhereThrows()
+    {
+        $this->expectException(QueryBuilderException::class);
+
+        (new QueryBuilder($this->pdo))
+            ->table('users')
+            ->update(['name' => 'Test']);
+    }
+
     public function testDelete()
     {
         $builder = new QueryBuilder($this->pdo);
@@ -500,6 +509,15 @@ class QueryBuilderTest extends TestCase
         $this->assertNull($name);
         $name = $builder->table('users')->where('id', '=', 2)->first('name');
         $this->assertNull($name);
+    }
+
+    public function testDeleteWithoutWhereThrows()
+    {
+        $this->expectException(QueryBuilderException::class);
+
+        (new QueryBuilder($this->pdo))
+            ->table('users')
+            ->delete();
     }
 
     public function testEmptyWhereIn()
