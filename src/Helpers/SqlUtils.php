@@ -73,11 +73,18 @@ class SqlUtils
             }
         }
 
-        // Handle identifiers that are already quoted - escape existing quotes
+        // Handle identifiers that are already quoted - add the appropriate number of quotes
         if (str_starts_with($identifier, $quoteCharacter) && str_ends_with($identifier, $quoteCharacter)) {
-            // Escape internal quotes and re-quote (don't remove existing quotes first)
-            $escaped = str_replace($quoteCharacter, $quoteCharacter . $quoteCharacter, $identifier);
-            return $escaped;
+            // Count existing quotes at the beginning
+            $startQuotes = 0;
+            for ($i = 0; $i < strlen($identifier) && $identifier[$i] === $quoteCharacter; $i++) {
+                $startQuotes++;
+            }
+
+            // Add the appropriate number of quotes based on existing quotes
+            $additionalQuotes = $startQuotes + 1; // Add 2 for 1 existing, 3 for 2 existing, etc.
+            $quoteString = str_repeat($quoteCharacter, $additionalQuotes);
+            return $quoteString . $identifier . $quoteString;
         }
 
         // Handle identifiers that contain quotes but aren't fully wrapped
@@ -108,6 +115,14 @@ class SqlUtils
 
     private static function isAliasedWithSpace(string $identifier, &$matches = null): bool
     {
+        // Don't treat already quoted identifiers as having aliases
+        $quoteChar = $identifier[0] ?? '';
+        if ($quoteChar === '"' || $quoteChar === '`') {
+            if (str_starts_with($identifier, $quoteChar) && str_ends_with($identifier, $quoteChar)) {
+                return false; // Already quoted, don't treat as alias
+            }
+        }
+
         // Find the split point manually by looking for the last word/quoted string
         $len = strlen($identifier);
         $i = $len - 1;

@@ -771,7 +771,18 @@ class MysqlDialectTest extends TestCase
             ->table('`users`')
             ->select('`id`', '`name`')
             ->toSql();
-        $this->assertEquals('SELECT ``id``, ``name`` FROM ``users``;', $query);
+        $this->assertEquals('SELECT ```id```, ```name``` FROM ```users```;', $query);
+    }
+
+    public function testDoubleQuotes()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('``users``')
+            ->select('``id``')
+            ->toSql();
+
+        $this->assertEquals('SELECT `````id````` FROM `````users`````;', $query);
     }
 
     public function testSpaceEscaping() {

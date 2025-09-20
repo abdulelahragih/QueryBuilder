@@ -791,7 +791,7 @@ class PostgresQueryBuilderTest extends TestCase
             ->table('"users"')
             ->select('"id"', '"name"')
             ->toSql();
-        $this->assertEquals('SELECT ""id"", ""name"" FROM ""users"";', $query);
+        $this->assertEquals('SELECT """id""", """name""" FROM """users""";', $query);
     }
 
     public function testSpaceEscaping()
@@ -813,6 +813,17 @@ class PostgresQueryBuilderTest extends TestCase
             ->toSql();
 
         $this->assertEquals('SELECT "id" FROM "users";', $query);
+    }
+
+    public function testDoubleQuotes()
+    {
+        $builder = new QueryBuilder(new PostgresStubPDO());
+        $query = $builder
+            ->table('""users""')
+            ->select('""id""')
+            ->toSql();
+
+        $this->assertEquals('SELECT """""id""""" FROM """""users""""";', $query);
     }
 
     public function testDbDialectAutoDetection()

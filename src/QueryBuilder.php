@@ -667,6 +667,11 @@ class QueryBuilder
         return $driverName === 'pgsql' ? new PostgresDialect() : new MySqlDialect();
     }
 
+    public function getDialect(): Dialect
+    {
+        return $this->dialect;
+    }
+
     /**
      * @param array<string, Expression|string> $assignments
      * @param array<int, Expression|string> $conflictColumns
