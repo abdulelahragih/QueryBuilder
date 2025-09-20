@@ -18,6 +18,17 @@ class MySqlDialect extends AbstractDialect
                 return $columnName . ' = VALUES(' . $columnName . ')';
             }
 
+            // if the value is a scalar (not a placeholder), generate VALUES() syntax
+            if (!is_string($value) || (!str_starts_with($value, ':') && !str_starts_with($value, 'VALUES('))) {
+                $columnName = $this->quoteIdentifier($column);
+                return $columnName . ' = VALUES(' . $columnName . ')';
+            }
+
+            // Check if value starts with VALUES( - if so, use as is
+            if (is_string($value) && str_starts_with($value, 'VALUES(')) {
+                return $this->quoteIdentifier($column) . ' = ' . $value;
+            }
+
             return $this->quoteIdentifier($column) . ' = ' . $value;
         });
 

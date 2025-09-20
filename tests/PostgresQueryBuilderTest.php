@@ -423,7 +423,7 @@ class PostgresQueryBuilderTest extends TestCase
         $this->assertEquals('Jane', $name);
     }
 
-    public function testInsertOnConflictDoNothing()
+    public function testInsertOrIgnore()
     {
         $builder = new QueryBuilder($this->pdo, new PostgresDialect());
         $query = null;
@@ -431,12 +431,12 @@ class PostgresQueryBuilderTest extends TestCase
         try {
             $builder
                 ->table('users')
-                ->onConflictDoNothing('id')
-                ->insert(
+                ->insertOrIgnore(
                     [
                         'id' => 100,
                         'name' => 'John'
                     ],
+                    ['id'], // Only check id for conflicts
                     $query
                 );
         } catch (Exception|Error) {
@@ -445,7 +445,7 @@ class PostgresQueryBuilderTest extends TestCase
         $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO NOTHING;', $query);
     }
 
-    public function testInsertOnConflictDoUpdateWithExpression()
+    public function testUpsertWithExpression()
     {
         $builder = new QueryBuilder($this->pdo, new PostgresDialect());
         $query = null;
@@ -453,21 +453,22 @@ class PostgresQueryBuilderTest extends TestCase
         try {
             $builder
                 ->table('users')
-                ->onConflictDoUpdate('id', ['name' => Expression::make('EXCLUDED.name')])
-                ->insert(
+                ->upsert(
                     [
                         'id' => 100,
                         'name' => 'John'
                     ],
+                    ['id'],
+                    ['name' => Expression::make('EXCLUDED.name')],
                     $query
                 );
         } catch (Exception|Error) {
         }
 
-        $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name";', $query);
+        $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED.name;', $query);
     }
 
-    public function testInsertOnConflictDoUpdateInfersAssignments()
+    public function testUpsertInfersAssignments()
     {
         $builder = new QueryBuilder($this->pdo, new PostgresDialect());
         $query = null;
@@ -475,18 +476,19 @@ class PostgresQueryBuilderTest extends TestCase
         try {
             $builder
                 ->table('users')
-                ->onConflictDoUpdate('id')
-                ->insert(
+                ->upsert(
                     [
                         'id' => 100,
                         'name' => 'John'
                     ],
+                    ['id'],
+                    null, // Let it infer assignments
                     $query
                 );
         } catch (Exception|Error) {
         }
 
-        $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO UPDATE SET "name" = :v4;', $query);
+        $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO UPDATE SET "name" = :v3;', $query);
     }
 
     public function testUpdate()
@@ -528,7 +530,30 @@ class PostgresQueryBuilderTest extends TestCase
         } catch (Exception|Error) {
         }
 
-        $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name", "updated_at" = CURRENT_TIMESTAMP, "full_name" = :v4;', $query);
+        $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name", "updated_at" = CURRENT_TIMESTAMP, "full_name" = :v3;', $query);
+    }
+
+    public function testUpsertAutoInferColumnsToUpdate()
+    {
+        $builder = new QueryBuilder(new PostgresStubPDO());
+        $query = null;
+        try {
+            $builder
+                ->table('users')
+                ->upsert(
+                    [
+                        'id' => 100,
+                        'ssn' => 1111111,
+                        'name' => 'John',
+                        'age' => 26
+                    ],
+                    ['id', 'ssn'], // unique columns
+                    null,
+                    $query);
+        } catch (Exception|Error) {
+        }
+
+        $this->assertEquals('INSERT INTO "users" ("id", "ssn", "name", "age") VALUES (:v1, :v2, :v3, :v4) ON CONFLICT ("id", "ssn") DO UPDATE SET "name" = EXCLUDED."name", "age" = EXCLUDED."age";', $query);
     }
 
     public function testUpdateWithoutWhereThrows()
