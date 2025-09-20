@@ -27,8 +27,4 @@ class Conjunction implements Clause
         return new Conjunction('OR');
     }
 
-    function build(): string
-    {
-        return $this->conjunction;
-    }
 }

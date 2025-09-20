@@ -14,9 +14,8 @@ class LimitClause implements Clause
         $this->limit = $limit;
     }
 
-
-    public function build(): string
+    public function getLimit(): int
     {
-        return 'LIMIT ' . $this->limit;
+        return $this->limit;
     }
 }

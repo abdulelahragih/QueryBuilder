@@ -14,9 +14,8 @@ class OffsetClause implements Clause
         $this->offset = $offset;
     }
 
-
-    public function build(): string
+    public function getOffset(): int
     {
-        return 'OFFSET ' . $this->offset;
+        return $this->offset;
     }
 }

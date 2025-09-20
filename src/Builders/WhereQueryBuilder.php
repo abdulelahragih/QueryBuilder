@@ -34,11 +34,6 @@ class WhereQueryBuilder
         return empty($this->whereClause->conditionClauses->getConditions());
     }
 
-    public function build(): string
-    {
-        return $this->whereClause->build();
-    }
-
     public function where(
         mixed                      $column,
         ?string                    $operator = null,
