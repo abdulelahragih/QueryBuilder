@@ -220,6 +220,10 @@ class QueryBuilder
      */
     public function update(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for update operation');
+        }
+
         try {
             // convert values to place holder
             $columnsToValues = array_map(function ($value) {
@@ -248,6 +252,10 @@ class QueryBuilder
 
     public function delete(?string &$resultedSql = null): ?int
     {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for delete operation');
+        }
+
         try {
             $deleteStatement = new DeleteStatement(
                 $this->fromClause->table,
@@ -275,6 +283,10 @@ class QueryBuilder
      */
     public function upsert(array $columnsToValues, array $uniqueBy, ?array $updateOnDuplicate = null, ?string &$resultedSql = null): ?int
     {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for upsert operation');
+        }
+
         try {
             $this->bindingsManager->reset();
             if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
@@ -326,6 +338,10 @@ class QueryBuilder
      */
     public function insert(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for insert operation');
+        }
+
         try {
             $this->bindingsManager->reset();
             if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
