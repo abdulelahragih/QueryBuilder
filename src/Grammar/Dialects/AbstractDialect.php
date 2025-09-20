@@ -20,6 +20,7 @@ use Abdulelahragih\QueryBuilder\Grammar\Statements\InsertStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\SelectStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\UpdateStatement;
 use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
+use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 use InvalidArgumentException;
 
 abstract class AbstractDialect implements Dialect
@@ -310,4 +311,10 @@ abstract class AbstractDialect implements Dialect
     }
 
     abstract protected function identifierQuoteCharacter(): string;
+
+    public function buildUpsertAssignments(array $columnsToValues, array $uniqueBy, ?array $updateOnDuplicate, BindingsManager $bindingsManager): array
+    {
+        // By default, not supported; dialects that support upsert should override
+        throw new InvalidArgumentException('Upsert is not supported by this dialect.');
+    }
 }

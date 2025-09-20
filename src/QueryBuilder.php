@@ -12,8 +12,8 @@ use Abdulelahragih\QueryBuilder\Grammar\Clauses\FromClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\JoinClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\LimitClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OffsetClause;
-use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OnConflictClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
 use Abdulelahragih\QueryBuilder\Grammar\Dialects\Dialect;
 use Abdulelahragih\QueryBuilder\Grammar\Dialects\MySqlDialect;
 use Abdulelahragih\QueryBuilder\Grammar\Dialects\PostgresDialect;
@@ -50,7 +50,6 @@ class QueryBuilder
     private BindingsManager $bindingsManager;
     private ?Closure $objConverter = null;
     private bool $isDistinct = false;
-    private ?array $onConflictConfig = null;
 
     public function __construct(PDO $pdo, ?Dialect $dialect = null)
     {
@@ -78,7 +77,6 @@ class QueryBuilder
         $this->offsetClause = null;
         $this->orderByClause = null;
         $this->objConverter = null;
-        $this->onConflictConfig = null;
     }
 
     /**
@@ -222,6 +220,10 @@ class QueryBuilder
      */
     public function update(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for update operation');
+        }
+
         try {
             // convert values to place holder
             $columnsToValues = array_map(function ($value) {
@@ -250,6 +252,10 @@ class QueryBuilder
 
     public function delete(?string &$resultedSql = null): ?int
     {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for delete operation');
+        }
+
         try {
             $deleteStatement = new DeleteStatement(
                 $this->fromClause->table,
@@ -270,12 +276,17 @@ class QueryBuilder
 
     /**
      * @param array $columnsToValues an associative array of columns to values to be inserted
-     * @param array|null $updateOnDuplicate
+     * @param array $uniqueBy columns that define uniqueness for conflict detection
+     * @param array|null $updateOnDuplicate columns to update on duplicate key (if null, updates all non-unique columns)
      * @param string|null $resultedSql
      * @return int|null the number of inserted rows or null on failure
      */
-    public function upsert(array $columnsToValues, ?array $updateOnDuplicate = [], ?string &$resultedSql = null): ?int
+    public function upsert(array $columnsToValues, array $uniqueBy, ?array $updateOnDuplicate = null, ?string &$resultedSql = null): ?int
     {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for upsert operation');
+        }
+
         try {
             $this->bindingsManager->reset();
             if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
@@ -295,26 +306,16 @@ class QueryBuilder
                 }, $columnsToValues);
             }
 
-            if (!empty($updateOnDuplicate)) {
-                foreach ($updateOnDuplicate as $column => $value) {
-                    if (is_int($column)) {
-                        continue;
-                    }
-                    $updateOnDuplicate[$column] = $this->bindingsManager->add($value);
-                }
-            } elseif ($updateOnDuplicate === []) {
-                foreach ($columnsToValues as $column => $value) {
-                    $updateOnDuplicate[$column] = $this->bindingsManager->add($value);
-                }
-            }
-
-            $onConflictClause = $this->buildOnConflictClause($updateOnDuplicate);
+            // Delegate upsert-specific assignment building to the dialect
+            $built = $this->dialect->buildUpsertAssignments($columnsToValues, $uniqueBy, $updateOnDuplicate, $this->bindingsManager);
+            $updateOnDuplicateKey = $built['updateOnDuplicateKey'] ?? null;
+            $onConflictClause = $built['onConflictClause'] ?? null;
 
             $insertStatement = new InsertStatement(
                 $this->fromClause->table,
                 $columns,
                 $values,
-                $updateOnDuplicate,
+                $updateOnDuplicateKey,
                 $onConflictClause
             );
             $query = $this->dialect->compileInsert($insertStatement) . $this->queryEndMarker();
@@ -337,12 +338,101 @@ class QueryBuilder
      */
     public function insert(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
-        $updateOnDuplicate = null;
-        if ($this->onConflictConfig !== null && $this->onConflictConfig['doNothing'] === false) {
-            $updateOnDuplicate = [];
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for insert operation');
         }
 
-        return $this->upsert($columnsToValues, $updateOnDuplicate, $resultedSql);
+        try {
+            $this->bindingsManager->reset();
+            if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
+                // $columnsToValues is an array of arrays (multiple rows)
+                $columns = array_keys($columnsToValues[0]);
+                $values = array_map(function ($row) {
+                    // convert values to placeholders
+                    return array_map(function ($value) {
+                        return $this->bindingsManager->add($value);
+                    }, $row);
+                }, $columnsToValues);
+            } else {
+                // $columnsToValues is a single array (single row)
+                $columns = array_keys($columnsToValues);
+                $values = array_map(function ($value) {
+                    return $this->bindingsManager->add($value);
+                }, $columnsToValues);
+            }
+
+            $insertStatement = new InsertStatement(
+                $this->fromClause->table,
+                $columns,
+                $values,
+                null, // No update on duplicate
+                null  // No onConflictClause
+            );
+            $query = $this->dialect->compileInsert($insertStatement) . $this->queryEndMarker();
+            $resultedSql = $query;
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return null;
+            }
+            return $statement->rowCount();
+
+        } finally {
+            $this->resetBuilderState();
+        }
+    }
+
+    /**
+     * Insert data and ignore on duplicate key conflicts
+     * @param array $columnsToValues an associative array of columns to values to be inserted
+     * @param array|null $uniqueColumns columns to check for conflicts (if null, uses all columns)
+     * @param string|null $resultedSql
+     * @return int|null the number of inserted rows or null on failure
+     */
+    public function insertOrIgnore(array $columnsToValues, ?array $uniqueColumns = null, ?string &$resultedSql = null): ?int
+    {
+        try {
+            $this->bindingsManager->reset();
+            if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
+                // $columnsToValues is an array of arrays (multiple rows)
+                $columns = array_keys($columnsToValues[0]);
+                $values = array_map(function ($row) {
+                    // convert values to placeholders
+                    return array_map(function ($value) {
+                        return $this->bindingsManager->add($value);
+                    }, $row);
+                }, $columnsToValues);
+            } else {
+                // $columnsToValues is a single array (single row)
+                $columns = array_keys($columnsToValues);
+                $values = array_map(function ($value) {
+                    return $this->bindingsManager->add($value);
+                }, $columnsToValues);
+            }
+
+            // Use provided unique columns or default to all columns
+            $conflictColumns = $uniqueColumns ?? $columns;
+
+            // Create onConflictClause for DO NOTHING behavior
+            $onConflictClause = new OnConflictClause($conflictColumns, null);
+
+            $insertStatement = new InsertStatement(
+                $this->fromClause->table,
+                $columns,
+                $values,
+                null, // No update on duplicate
+                $onConflictClause
+            );
+            $query = $this->dialect->compileInsert($insertStatement) . $this->queryEndMarker();
+            $resultedSql = $query;
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return null;
+            }
+            return $statement->rowCount();
+
+        } finally {
+            $this->resetBuilderState();
+        }
     }
 
     public function distinct(): self
@@ -351,28 +441,6 @@ class QueryBuilder
         return $this;
     }
 
-    public function onConflictDoNothing(array|string $columns): self
-    {
-        $this->onConflictConfig = [
-            'columns' => $this->normalizeConflictColumns($columns),
-            'assignments' => null,
-            'doNothing' => true,
-        ];
-
-        return $this;
-    }
-
-    public function onConflictDoUpdate(array|string $columns, ?array $assignments = []): self
-    {
-        $assignments ??= [];
-        $this->onConflictConfig = [
-            'columns' => $this->normalizeConflictColumns($columns),
-            'assignments' => $assignments,
-            'doNothing' => false,
-        ];
-
-        return $this;
-    }
 
     /**
      * @throws QueryBuilderException
@@ -589,77 +657,6 @@ class QueryBuilder
         return ' ' . $this->dialect->compileWhereClause($whereClause);
     }
 
-    /**
-     * @param array|string $columns
-     * @return array<int, Expression|string>
-     */
-    private function normalizeConflictColumns(array|string $columns): array
-    {
-        $columns = is_array($columns) ? $columns : [$columns];
-        if (empty($columns)) {
-            throw new InvalidArgumentException('On conflict requires at least one target column.');
-        }
-
-        foreach ($columns as $column) {
-            if (!$column instanceof Expression && !is_string($column)) {
-                throw new InvalidArgumentException('On conflict columns must be strings or Expression instances.');
-            }
-        }
-
-        return $columns;
-    }
-
-    private function buildOnConflictClause(?array $updateOnDuplicate): ?OnConflictClause
-    {
-        if ($this->onConflictConfig === null) {
-            return null;
-        }
-
-        $columns = $this->onConflictConfig['columns'];
-        $assignmentsConfig = $this->onConflictConfig['assignments'];
-        $doNothing = $this->onConflictConfig['doNothing'];
-
-        if ($doNothing) {
-            return new OnConflictClause($columns, null);
-        }
-
-        if ($assignmentsConfig === []) {
-            if (empty($updateOnDuplicate)) {
-                throw new InvalidArgumentException('Unable to infer on conflict assignments; provide explicit assignments.');
-            }
-            $assignments = $this->filterDefaultConflictAssignments($updateOnDuplicate, $columns);
-            return new OnConflictClause($columns, $assignments);
-        }
-
-        $assignments = [];
-        foreach ($assignmentsConfig as $column => $value) {
-            if (is_int($column)) {
-                throw new InvalidArgumentException('On conflict assignments must use column names as keys.');
-            }
-
-            if (!is_string($column)) {
-                throw new InvalidArgumentException('On conflict assignment keys must be column names.');
-            }
-
-            if ($value instanceof Expression) {
-                $assignments[$column] = $value;
-                continue;
-            }
-
-            if (is_string($value) && str_starts_with($value, ':')) {
-                $assignments[$column] = $value;
-                continue;
-            }
-
-            $assignments[$column] = $this->bindingsManager->add($value);
-        }
-
-        if (empty($assignments)) {
-            throw new InvalidArgumentException('On conflict update requires at least one assignment.');
-        }
-
-        return new OnConflictClause($columns, $assignments);
-    }
 
     private function detectDialect(PDO $pdo): Dialect
     {
@@ -672,22 +669,6 @@ class QueryBuilder
         return $this->dialect;
     }
 
-    /**
-     * @param array<string, Expression|string> $assignments
-     * @param array<int, Expression|string> $conflictColumns
-     * @return array<string, Expression|string>
-     */
-    private function filterDefaultConflictAssignments(array $assignments, array $conflictColumns): array
-    {
-        $columnNames = array_filter($conflictColumns, static fn($column) => is_string($column));
-        if (empty($columnNames)) {
-            return $assignments;
-        }
-
-        $filtered = array_diff_key($assignments, array_flip($columnNames));
-
-        return empty($filtered) ? $assignments : $filtered;
-    }
 
     private function queryEndMarker(): string
     {

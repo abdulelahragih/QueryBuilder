@@ -413,6 +413,7 @@ class MysqlDialectTest extends TestCase
                         'id' => 100,
                         'name' => 'John'
                     ],
+                    ['id'], // unique columns
                     [
                         'name'
                     ],
@@ -421,6 +422,29 @@ class MysqlDialectTest extends TestCase
         }
 
         $this->assertEquals('INSERT INTO `users` (`id`, `name`) VALUES (:v1, :v2) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);', $query);
+    }
+
+    public function testUpsertAutoInferColumnsToUpdate()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        try {
+            $builder
+                ->table('users')
+                ->upsert(
+                    [
+                        'id' => 100,
+                        'ssn' => 1111111,
+                        'name' => 'John',
+                        'age' => 26
+                    ],
+                    ['id', 'ssn'], // unique columns
+                    null,
+                    $query);
+        } catch (Exception|Error) {
+        }
+
+        $this->assertEquals('INSERT INTO `users` (`id`, `ssn`, `name`, `age`) VALUES (:v1, :v2, :v3, :v4) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `age` = VALUES(`age`);', $query);
     }
 
     public function testUpsertWithCustomValueOnUpdate()
@@ -435,9 +459,8 @@ class MysqlDialectTest extends TestCase
                         'id' => 100,
                         'name' => 'John'
                     ],
-                    [
-                        'name' => 'Jane'
-                    ],
+                    ['id'],
+                    ['name' => 'Jane'],
                     $query);
         } catch (Exception|Error) {
         }
@@ -454,17 +477,18 @@ class MysqlDialectTest extends TestCase
                 ->table('users')
                 ->upsert(
                     [
-                        ['id' => 100, 'name' => 'John'],
-                        ['id' => 101, 'name' => 'Jane']
+                        ['id' => 100, 'name' => 'John', 'age' => 24],
+                        ['id' => 101, 'name' => 'Jane', 'age' => 21]
                     ],
-                    ['name'],
+                    ['id'], // unique columns
+                    null,
                     $query
                 );
         } catch (Exception|Error) {
         }
 
         $this->assertEquals(
-            'INSERT INTO `users` (`id`, `name`) VALUES (:v1, :v2), (:v3, :v4) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);',
+            'INSERT INTO `users` (`id`, `name`, `age`) VALUES (:v1, :v2, :v3), (:v4, :v5, :v6) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `age` = VALUES(`age`);',
             $query
         );
     }
@@ -785,7 +809,8 @@ class MysqlDialectTest extends TestCase
         $this->assertEquals('SELECT `````id````` FROM `````users`````;', $query);
     }
 
-    public function testSpaceEscaping() {
+    public function testSpaceEscaping()
+    {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
             ->table(' users ')
