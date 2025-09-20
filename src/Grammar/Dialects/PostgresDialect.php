@@ -7,6 +7,7 @@ namespace Abdulelahragih\QueryBuilder\Grammar\Dialects;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OnConflictClause;
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
+use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 
 class PostgresDialect extends AbstractDialect
 {
@@ -52,5 +53,43 @@ class PostgresDialect extends AbstractDialect
     protected function identifierQuoteCharacter(): string
     {
         return '"';
+    }
+
+    public function buildUpsertAssignments(array $columnsToValues, array $uniqueBy, ?array $updateOnDuplicate, BindingsManager $bindingsManager): array
+    {
+        // Build OnConflictClause with EXCLUDED inference by default
+        if ($updateOnDuplicate === null) {
+            $firstRow = is_array(reset($columnsToValues)) ? $columnsToValues[0] : $columnsToValues;
+            $assignments = [];
+            foreach ($firstRow as $column => $value) {
+                if (!in_array($column, $uniqueBy, true)) {
+                    $assignments[$column] = 'EXCLUDED.' . $column;
+                }
+            }
+            return [
+                'updateOnDuplicateKey' => null,
+                'onConflictClause' => empty($assignments) ? null : new OnConflictClause($uniqueBy, $assignments),
+            ];
+        }
+
+        // Explicit assignments
+        $processed = [];
+        foreach ($updateOnDuplicate as $column => $value) {
+            if (is_int($column)) {
+                // infer from column name
+                $processed[$value] = 'EXCLUDED.' . $value;
+            } elseif ($value instanceof Expression) {
+                $processed[$column] = $value;
+            } elseif (is_string($value) && str_starts_with($value, 'EXCLUDED.')) {
+                $processed[$column] = $value;
+            } else {
+                $processed[$column] = $bindingsManager->add($value);
+            }
+        }
+
+        return [
+            'updateOnDuplicateKey' => null,
+            'onConflictClause' => empty($processed) ? null : new OnConflictClause($uniqueBy, $processed),
+        ];
     }
 }

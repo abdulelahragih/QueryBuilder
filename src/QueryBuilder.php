@@ -294,61 +294,10 @@ class QueryBuilder
                 }, $columnsToValues);
             }
 
-            // If updateOnDuplicate is null, update all columns except unique ones
-            if ($updateOnDuplicate === null) {
-                $updateOnDuplicate = [];
-                // Get the first row to determine columns for inference
-                $firstRow = is_array(reset($columnsToValues)) ? $columnsToValues[0] : $columnsToValues;
-                foreach ($firstRow as $column => $value) {
-                    if (!in_array($column, $uniqueBy, true)) {
-                        if ($this->dialect instanceof MySqlDialect) {
-                            // For MySQL, use the raw value (dialect will generate VALUES() syntax)
-                            $updateOnDuplicate[$column] = $value;
-                        } else {
-                            // For PostgreSQL, create placeholder for the value
-                            $updateOnDuplicate[$column] = $this->bindingsManager->add($value);
-                        }
-                    }
-                }
-            } else {
-                $processedUpdateOnDuplicate = [];
-                foreach ($updateOnDuplicate as $column => $value) {
-                    if (is_int($column)) {
-                        // If key is int, treat value as column name for inference
-                        // Get the value from the first row for this column
-                        $firstRow = is_array(reset($columnsToValues)) ? $columnsToValues[0] : $columnsToValues;
-                        $columnValue = $firstRow[$value] ?? null;
-                        if ($this->dialect instanceof MySqlDialect) {
-                            // For MySQL, use the raw value (dialect will generate VALUES() syntax)
-                            $processedUpdateOnDuplicate[$value] = $columnValue;
-                        } else {
-                            // For PostgreSQL, use EXCLUDED syntax for inference
-                            $processedUpdateOnDuplicate[$value] = "EXCLUDED.$value";
-                        }
-                    } elseif ($value instanceof Expression) {
-                        // Keep expressions as is
-                        $processedUpdateOnDuplicate[$column] = $value;
-                    } else {
-                        // Convert to placeholder
-                        $processedUpdateOnDuplicate[$column] = $this->bindingsManager->add($value);
-                    }
-                }
-                $updateOnDuplicate = $processedUpdateOnDuplicate;
-            }
-
-            // Handle different dialects
-            $updateOnDuplicateKey = null;
-            $onConflictClause = null;
-
-            if ($this->dialect instanceof MySqlDialect) {
-                // MySQL uses ON DUPLICATE KEY UPDATE
-                $updateOnDuplicateKey = $updateOnDuplicate;
-            } else {
-                // PostgreSQL uses ON CONFLICT
-                if (!empty($updateOnDuplicate)) {
-                    $onConflictClause = new OnConflictClause($uniqueBy, $updateOnDuplicate);
-                }
-            }
+            // Delegate upsert-specific assignment building to the dialect
+            $built = $this->dialect->buildUpsertAssignments($columnsToValues, $uniqueBy, $updateOnDuplicate, $this->bindingsManager);
+            $updateOnDuplicateKey = $built['updateOnDuplicateKey'] ?? null;
+            $onConflictClause = $built['onConflictClause'] ?? null;
 
             $insertStatement = new InsertStatement(
                 $this->fromClause->table,

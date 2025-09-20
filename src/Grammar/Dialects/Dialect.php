@@ -11,6 +11,7 @@ use Abdulelahragih\QueryBuilder\Grammar\Statements\DeleteStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\InsertStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\SelectStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\UpdateStatement;
+use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 
 interface Dialect
 {
@@ -27,4 +28,12 @@ interface Dialect
     public function compileWhereClause(WhereClause $whereClause): string;
 
     public function compileJoinClause(JoinClause $joinClause): string;
+
+    /**
+     * Build dialect-specific assignments for upsert operations.
+     * Should return an array with keys:
+     * - 'updateOnDuplicateKey' => ?array (for MySQL's ON DUPLICATE KEY UPDATE)
+     * - 'onConflictClause' => ?\Abdulelahragih\QueryBuilder\Grammar\Clauses\OnConflictClause (for Postgres)
+     */
+    public function buildUpsertAssignments(array $columnsToValues, array $uniqueBy, ?array $updateOnDuplicate, BindingsManager $bindingsManager): array;
 }

@@ -488,7 +488,7 @@ class PostgresQueryBuilderTest extends TestCase
         } catch (Exception|Error) {
         }
 
-        $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO UPDATE SET "name" = :v3;', $query);
+        $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name";', $query);
     }
 
     public function testUpdate()
