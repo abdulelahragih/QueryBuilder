@@ -65,7 +65,26 @@ class SqlUtils
             $quotedIdentifier = self::quoteIdentifier($matches[1], $quoteCharacter);
             $quotedAlias = self::quoteIdentifier($matches[2], $quoteCharacter);
 
-            return $quotedIdentifier . ' ' . $quotedAlias;
+            // Don't add extra space if original identifier part ends with spaces
+            if (str_ends_with($matches[1], ' ')) {
+                return $quotedIdentifier . $quotedAlias;
+            } else {
+                return $quotedIdentifier . ' ' . $quotedAlias;
+            }
+        }
+
+        // Handle identifiers that are already quoted - escape existing quotes
+        if (str_starts_with($identifier, $quoteCharacter) && str_ends_with($identifier, $quoteCharacter)) {
+            // Escape internal quotes and re-quote (don't remove existing quotes first)
+            $escaped = str_replace($quoteCharacter, $quoteCharacter . $quoteCharacter, $identifier);
+            return $escaped;
+        }
+
+        // Handle identifiers that contain quotes but aren't fully wrapped
+        if (str_contains($identifier, $quoteCharacter)) {
+            // Escape existing quotes and wrap in new quotes
+            $escaped = str_replace($quoteCharacter, $quoteCharacter . $quoteCharacter, $identifier);
+            return $quoteCharacter . $escaped . $quoteCharacter;
         }
 
         // Split identifiers by dots (e.g., user.id -> ['user', 'id'])
@@ -89,6 +108,68 @@ class SqlUtils
 
     private static function isAliasedWithSpace(string $identifier, &$matches = null): bool
     {
-        return preg_match('/^(\s*(?:[^ \t\n\r`]+|`[^`]+`))\s+((?:[^ \t\n\r`]+|`[^`]+`)\s*)$/', $identifier, $matches);
+        // Find the split point manually by looking for the last word/quoted string
+        $len = strlen($identifier);
+        $i = $len - 1;
+
+        // Skip trailing spaces
+        while ($i >= 0 && $identifier[$i] === ' ') {
+            $i--;
+        }
+
+        if ($i < 0) {
+            return false; // Only spaces
+        }
+
+        // Find the start of the last token (quoted string or unquoted word)
+        if ($identifier[$i] === '"' || $identifier[$i] === '`') {
+            // Quoted string - find the opening quote
+            $quoteChar = $identifier[$i];
+            $i--;
+            while ($i >= 0 && $identifier[$i] !== $quoteChar) {
+                $i--;
+            }
+            if ($i < 0) {
+                return false; // Unmatched quote
+            }
+        } else {
+            // Unquoted word - find the start
+            while ($i >= 0 && $identifier[$i] !== ' ') {
+                $i--;
+            }
+        }
+
+        $tokenStart = $i + 1;
+
+        // Check if there's a space before the token
+        if ($tokenStart === 0) {
+            return false; // No space before token
+        }
+
+        // Find the end of the identifier (start of spaces before token)
+        while ($i >= 0 && $identifier[$i] === ' ') {
+            $i--;
+        }
+
+        if ($i < 0) {
+            return false; // Only spaces before token
+        }
+
+        // Make sure we have actual content before the spaces (not just a single quote)
+        $identifierPart = substr($identifier, 0, $tokenStart - 1);
+        if (trim($identifierPart) === '' || strlen(trim($identifierPart)) <= 1) {
+            return false; // No meaningful identifier part
+        }
+
+        // Extract parts
+        $aliasPart = substr($identifier, $tokenStart);
+
+        $matches = [
+            $identifier,     // Full match
+            $identifierPart, // Identifier part (with trailing spaces)
+            $aliasPart       // Alias part
+        ];
+
+        return true;
     }
 }

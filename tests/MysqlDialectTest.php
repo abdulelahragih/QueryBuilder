@@ -780,6 +780,6 @@ class MysqlDialectTest extends TestCase
             ->table(' users ')
             ->select(' id  ` uid`', 'name ')
             ->toSql();
-        $this->assertEquals('SELECT ` id` `` uid``, `name ` FROM ` users `;', $query);
+        $this->assertEquals('SELECT ` id  `` uid```, `name ` FROM ` users `;', $query);
     }
 }
