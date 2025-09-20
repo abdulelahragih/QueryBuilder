@@ -2,6 +2,7 @@
 
 namespace Abdulelahragih\QueryBuilder;
 
+use Abdulelahragih\QueryBuilder\Grammar\Dialects\Dialect;
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Closure;
 use Exception;
@@ -10,15 +11,17 @@ use PDO;
 class DBSingleton
 {
     private static PDO $pdo;
+    private static ?Dialect $dialect;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, ?Dialect $dialect = null)
     {
         self::$pdo = $pdo;
+        self::$dialect = $dialect;
     }
 
-    public static function init(PDO $pdo): self
+    public static function init(PDO $pdo, ?Dialect $dialect = null): self
     {
-        return new self($pdo);
+        return new self($pdo, $dialect);
     }
 
     /**
@@ -29,7 +32,12 @@ class DBSingleton
         if (!isset(self::$pdo)) {
             throw new Exception('Database connection not initialized. Please call DB::init() first.');
         }
-        return (new QueryBuilder(self::$pdo))->table($table);
+        return (new QueryBuilder(self::$pdo, self::$dialect))->table($table);
+    }
+
+    public static function setDialect(Dialect $dialect): void
+    {
+        self::$dialect = $dialect;
     }
 
     public static function getPdo(): PDO
