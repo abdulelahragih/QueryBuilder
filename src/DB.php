@@ -4,8 +4,6 @@ namespace Abdulelahragih\QueryBuilder;
 
 use Abdulelahragih\QueryBuilder\Data\Collection;
 use Abdulelahragih\QueryBuilder\Grammar\Dialects\Dialect;
-use Abdulelahragih\QueryBuilder\Grammar\Dialects\MySqlDialect;
-use Abdulelahragih\QueryBuilder\Grammar\Dialects\PostgresDialect;
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Closure;
 use Exception;
@@ -14,12 +12,12 @@ use PDO;
 class DB
 {
     private PDO $pdo;
-    private Dialect $dialect;
+    private ?Dialect $dialect;
 
     public function __construct(PDO $pdo, ?Dialect $dialect = null)
     {
         $this->pdo = $pdo;
-        $this->dialect = $dialect ?? $this->detectDialect($pdo);
+        $this->dialect = $dialect;
     }
 
     /**
@@ -33,7 +31,7 @@ class DB
         return (new QueryBuilder($this->pdo, $this->dialect))->table($table);
     }
 
-    public function setDialect(Dialect $dialect): self
+    public function setDialect(?Dialect $dialect): self
     {
         $this->dialect = $dialect;
         return $this;
@@ -101,11 +99,5 @@ class DB
     public function raw(string $value): Expression
     {
         return Expression::make($value);
-    }
-
-    private function detectDialect(PDO $pdo): Dialect
-    {
-        $driverName = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
-        return $driverName === 'pgsql' ? new PostgresDialect() : new MySqlDialect();
     }
 }

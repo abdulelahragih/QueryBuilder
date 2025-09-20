@@ -11,7 +11,7 @@ use PDO;
 class DBSingleton
 {
     private static PDO $pdo;
-    private static Dialect $dialect;
+    private static ?Dialect $dialect;
 
     public function __construct(PDO $pdo, ?Dialect $dialect = null)
     {
