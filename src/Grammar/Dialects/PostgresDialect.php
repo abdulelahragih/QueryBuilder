@@ -33,10 +33,16 @@ class PostgresDialect extends AbstractDialect
             $onConflictClause->assignments,
             ', ',
             function ($column, $value) {
-                $right = $value instanceof Expression
-                    ? $value->getValue()
-                    : $value;
-                return $this->quoteIdentifier($column) . ' = ' . $right;
+                [$rightPart1, $rightPart2] = match (true) {
+                    $value instanceof Expression => ['', $value->getValue()],
+                    is_string($value) && str_starts_with($value, 'EXCLUDED.') => [
+                        'EXCLUDED.',
+                        $this->quoteIdentifier(substr($value, strlen('EXCLUDED.'))),
+                    ],
+                    default => ['', $value instanceof Expression ? $value->getValue() : $value],
+
+                };
+                return $this->quoteIdentifier($column) . ' = ' . $rightPart1 . $rightPart2;
             }
         );
 

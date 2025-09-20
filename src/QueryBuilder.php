@@ -12,8 +12,8 @@ use Abdulelahragih\QueryBuilder\Grammar\Clauses\FromClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\JoinClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\LimitClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OffsetClause;
-use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OnConflictClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
 use Abdulelahragih\QueryBuilder\Grammar\Dialects\Dialect;
 use Abdulelahragih\QueryBuilder\Grammar\Dialects\MySqlDialect;
 use Abdulelahragih\QueryBuilder\Grammar\Dialects\PostgresDialect;
@@ -270,11 +270,12 @@ class QueryBuilder
 
     /**
      * @param array $columnsToValues an associative array of columns to values to be inserted
+     * @param array $uniqueBy
      * @param array|null $updateOnDuplicate
      * @param string|null $resultedSql
      * @return int|null the number of inserted rows or null on failure
      */
-    public function upsert(array $columnsToValues, ?array $updateOnDuplicate = [], ?string &$resultedSql = null): ?int
+    public function upsert(array $columnsToValues, array $uniqueBy, ?array $updateOnDuplicate = [], ?string &$resultedSql = null): ?int
     {
         try {
             $this->bindingsManager->reset();
@@ -294,7 +295,9 @@ class QueryBuilder
                     return $this->bindingsManager->add($value);
                 }, $columnsToValues);
             }
-
+            if (is_null($this->onConflictConfig)) {
+                $this->onConflictDoUpdate($uniqueBy, $updateOnDuplicate);
+            }
             if (!empty($updateOnDuplicate)) {
                 foreach ($updateOnDuplicate as $column => $value) {
                     if (is_int($column)) {
@@ -634,11 +637,8 @@ class QueryBuilder
         $assignments = [];
         foreach ($assignmentsConfig as $column => $value) {
             if (is_int($column)) {
-                throw new InvalidArgumentException('On conflict assignments must use column names as keys.');
-            }
-
-            if (!is_string($column)) {
-                throw new InvalidArgumentException('On conflict assignment keys must be column names.');
+                $assignments[$value] = "EXCLUDED.$value";
+                continue;
             }
 
             if ($value instanceof Expression) {

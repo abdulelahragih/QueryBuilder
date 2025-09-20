@@ -464,7 +464,7 @@ class PostgresQueryBuilderTest extends TestCase
         } catch (Exception|Error) {
         }
 
-        $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED.name;', $query);
+        $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name";', $query);
     }
 
     public function testInsertOnConflictDoUpdateInfersAssignments()
@@ -504,6 +504,31 @@ class PostgresQueryBuilderTest extends TestCase
         $this->assertEquals('UPDATE "users" SET "name" = :v2 WHERE "id" = :v1;', $query);
         $name = $builder->table('users')->where('id', '=', 1)->first('name');
         $this->assertEquals('Sarah', $name);
+    }
+
+    public function testUpsert()
+    {
+        $builder = new QueryBuilder(new PostgresStubPDO());
+        $query = null;
+        try {
+            $builder
+                ->table('users')
+                ->upsert(
+                    [
+                        'id' => 100,
+                        'name' => 'John'
+                    ],
+                    ['id'],
+                    [
+                        'name',
+                        'updated_at' => Expression::make('CURRENT_TIMESTAMP'),
+                        'full_name' => 'John Doe'
+                    ],
+                    $query);
+        } catch (Exception|Error) {
+        }
+
+        $this->assertEquals('INSERT INTO "users" ("id", "name") VALUES (:v1, :v2) ON CONFLICT ("id") DO UPDATE SET "name" = EXCLUDED."name", "updated_at" = CURRENT_TIMESTAMP, "full_name" = :v4;', $query);
     }
 
     public function testUpdateWithoutWhereThrows()
