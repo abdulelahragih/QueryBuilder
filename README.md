@@ -5,7 +5,7 @@ Fast, lightweight, and simple SQL query builder that does not depend on any thir
 
 - Automatic parameter binding via an internal bindings manager.
 - Comprehensive WHERE builder: nested groups, `IN/NOT IN`, `LIKE/NOT LIKE`, `NULL/NOT NULL`, `BETWEEN/NOT BETWEEN`.
-- Rich JOINs: `INNER`, `LEFT`, `RIGHT`, `FULL` with nested conditions and `on` helpers.
+- Rich JOINs: `INNER`, `LEFT`, `RIGHT`, and `FULL` (only on dialects that support it, e.g., PostgreSQL) with nested conditions and `on` helpers.
 - Pagination: `paginate` (length-aware) and `simplePaginate` (no total count) with page name support.
 - Dialect-aware SQL generation with automatic detection (MySQL & Postgres for now).
 - Inserts, updates, deletes with safety checks (no UPDATE/DELETE without WHERE).
