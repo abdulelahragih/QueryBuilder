@@ -7,7 +7,7 @@ Fast, lightweight, and simple SQL query builder that does not depend on any thir
 - Comprehensive WHERE builder: nested groups, `IN/NOT IN`, `LIKE/NOT LIKE`, `NULL/NOT NULL`, `BETWEEN/NOT BETWEEN`.
 - Rich JOINs: `INNER`, `LEFT`, `RIGHT`, `FULL` with nested conditions and `on` helpers.
 - Pagination: `paginate` (length-aware) and `simplePaginate` (cursor-like) with page name support.
-- Dialect-aware SQL generation with automatic detection (Mysql & Postgres for now).
+- Dialect-aware SQL generation with automatic detection (MySQL & Postgres for now).
 - Inserts, updates, deletes with safety checks (no UPDATE/DELETE without WHERE).
 - Upserts with dialect-specific behavior.
 - Convenience helpers: `first`, `pluck`, `distinct`, `orderBy`, `limit`, `offset`, `raw` expressions, `objectConverter`.
