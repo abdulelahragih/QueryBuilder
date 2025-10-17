@@ -15,6 +15,8 @@ use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 
 interface Dialect
 {
+    public function compileRandom(string|int $seed = ''): string;
+
     public function compileSelect(SelectStatement $statement): string;
 
     public function compileInsert(InsertStatement $statement): string;

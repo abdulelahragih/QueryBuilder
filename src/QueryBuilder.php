@@ -542,6 +542,15 @@ class QueryBuilder
         return $this;
     }
 
+    public function inRandomOrder(string|int $seed = ''): self
+    {
+        if (!isset($this->orderByClause)) {
+            $this->orderByClause = new OrderByClause();
+        }
+        $this->orderByClause->addRandom(Expression::make($this->dialect->compileRandom($seed)));
+        return $this;
+    }
+
     /**
      * @throws QueryBuilderException
      */
