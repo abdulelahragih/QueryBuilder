@@ -11,6 +11,11 @@ use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 
 class PostgresDialect extends AbstractDialect
 {
+    public function compileRandom(string|int $seed = ''): string
+    {
+        return 'RANDOM()';
+    }
+
     protected function formatUpsertClause(array $updateOnDuplicateKey): string
     {
         return '';

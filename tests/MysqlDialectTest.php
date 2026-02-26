@@ -236,6 +236,67 @@ class MysqlDialectTest extends TestCase
         $this->assertEquals('SELECT `id`, `name` FROM `users` ORDER BY `id` ASC, `name` DESC;', $query);
     }
 
+    public function testInRandomOrder()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->select('id')
+            ->inRandomOrder()
+            ->toSql();
+        $this->assertEquals('SELECT `id` FROM `users` ORDER BY RAND();', $query);
+    }
+
+    public function testRandomComesFirstWhenChainedBeforeOrderBy()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->select('id')
+            ->inRandomOrder()
+            ->orderBy('id')
+            ->toSql();
+        $this->assertEquals('SELECT `id` FROM `users` ORDER BY RAND(), `id` ASC;', $query);
+    }
+
+    public function testRandomComesFirstWhenChainedAfterOrderBy()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->select('id')
+            ->orderBy('id')
+            ->inRandomOrder()
+            ->toSql();
+        $this->assertEquals('SELECT `id` FROM `users` ORDER BY RAND(), `id` ASC;', $query);
+    }
+
+    public function testRandomPreservesRelativeOrderOfOtherColumnsWhenRandomLast()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->select('id')
+            ->orderBy('name')
+            ->orderByDesc('id')
+            ->inRandomOrder()
+            ->toSql();
+        $this->assertEquals('SELECT `id` FROM `users` ORDER BY RAND(), `name` ASC, `id` DESC;', $query);
+    }
+
+    public function testRandomPreservesRelativeOrderOfOtherColumnsWhenRandomFirst()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->select('id')
+            ->inRandomOrder()
+            ->orderBy('name')
+            ->orderByDesc('id')
+            ->toSql();
+        $this->assertEquals('SELECT `id` FROM `users` ORDER BY RAND(), `name` ASC, `id` DESC;', $query);
+    }
+
     public function testLimit()
     {
         $builder = new QueryBuilder($this->pdo);

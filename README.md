@@ -3,124 +3,250 @@ Fast, lightweight, and simple SQL query builder that does not depend on any thir
 
 ## Features
 
-- Internal bindings manager, so you do not have to worry about binding your values.
-- Support adding multiple and nested conditions to the Where and the Join clauses.
-- Support Pagination.
-- Dialect-aware SQL generation.
+- Automatic parameter binding via an internal bindings manager.
+- Comprehensive WHERE builder: nested groups, `IN/NOT IN`, `LIKE/NOT LIKE`, `NULL/NOT NULL`, `BETWEEN/NOT BETWEEN`.
+- Rich JOINs: `INNER`, `LEFT`, `RIGHT`, and `FULL` (only on dialects that support it, e.g., PostgreSQL) with nested conditions and `on` helpers.
+- Pagination: `paginate` (length-aware) and `simplePaginate` (no total count) with page name support.
+- Dialect-aware SQL generation with automatic detection (MySQL & Postgres for now).
+- Inserts, updates, deletes with safety checks (no UPDATE/DELETE without WHERE).
+- Upserts with dialect-specific behavior.
+- Convenience helpers: `first`, `pluck`, `distinct`, `orderBy`, `limit`, `offset`, `raw` expressions, `objectConverter`.
+- Results as a fluent `Collection` and paginator objects.
+
 ## Installation
-The recommended way to install the QueryBuilder is through [Composer](http://getcomposer.org). 
+Install via Composer:
 ```sh
 composer require abdulelahragih/querybuilder
 ```
 
-## Basic Usage
-To start using it you have to first create an instance of the QueryBuilder:
+## Getting Started
+Create a builder from a `PDO` instance. Dialect is auto-detected from `PDO::ATTR_DRIVER_NAME` (`pgsql` → Postgres; otherwise MySQL):
 ```php
-$pdo = # your pdo connection
-$qb = new \Abdulelahragih\QueryBuilder\QueryBuilder($pdo)
-# Now you can start using it 
-$result = $qb->table('users')
-   ->select('id', 'username', 'phone_number', 'gender')
-   ->where('role_id', '=', 1)
-   ->join('images', 'images.user_id', '=', 'users.id')
-   ->get();
+use Abdulelahragih\QueryBuilder\QueryBuilder;
+
+$pdo = /* your PDO connection */;
+$qb = new QueryBuilder($pdo);
+
+$rows = $qb->table('users')
+    ->select('id', 'username', 'phone_number', 'gender')
+    ->where('role_id', '=', 1)
+    ->join('images', 'images.user_id', '=', 'users.id')
+    ->orderBy('id', 'DESC')
+    ->limit(10)
+    ->get(); // returns Collection
 ```
 
-## Select with pagination
-You can either use the `paginate` method or the `simplePaginate` method. 
+You can also use the thin `DB` wrapper (instance-based) or the `DBSingleton` for a static facade if you prefer:
+```php
+use Abdulelahragih\QueryBuilder\DB;
+use Abdulelahragih\QueryBuilder\DBSingleton;
 
-`paginate` will return a `LengthAwarePaginator` instance which contains the total number of items, the current page, the number of items per page, the total number of pages, and the number of next and previous pages. <br>
-```php
-$paginator = $qb->table('users')
-   ->select('id', 'username', 'phone_number', 'gender')
-   ->where('role_id', '=', 1)
-   ->paginate($page, $limit);
-```
-`simplePaginate` will return a `Paginator` instance which contains the current page, the number of items per page, and the number of next and previous pages. <br>
-```php
-$paginator = $qb->table('users')
-   ->select('id', 'username', 'phone_number', 'gender')
-   ->where('role_id', '=', 1)
-   ->simplePaginate($page, $limit);
+// Instance wrapper
+$db = new DB($pdo);
+$users = $db->table('users')->select('id')->get();
+
+// Static facade
+DBSingleton::init($pdo);
+$firstId = DBSingleton::table('users')->first('id');
 ```
 
-## PostgreSQL upserts
-
-When you work against PostgreSQL you can configure the builder with the `PostgresDialect` and use the fluent helpers to generate `ON CONFLICT` clauses:
-
+## Pagination
+Length-aware pagination returns totals and page info:
 ```php
-use Abdulelahragih\QueryBuilder\Grammar\Dialects\PostgresDialect;
+$p = $qb->table('users')
+    ->orderBy('id', 'DESC')
+    ->paginate($page, $perPage, pageName: 'page');
+// $p is LengthAwarePaginator (items + total, pages, prev/next)
+```
+
+Simple pagination is lighter weight:
+```php
+$p = $qb->table('users')->simplePaginate($page, $perPage);
+// $p is SimplePaginator (items + prev/next)
+```
+
+## Inserts and Upserts
+- Insert single or multiple rows:
+```php
+$qb->table('users')->insert(['id' => 100, 'name' => 'John']);
+$qb->table('users')->insert([
+    ['id' => 100, 'name' => 'John'],
+    ['id' => 101, 'name' => 'Jane'],
+]);
+```
+
+- Upsert with a unified API across dialects:
+```php
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
 
-$qb = new \Abdulelahragih\QueryBuilder\QueryBuilder($pdo, new PostgresDialect());
+// Update non-unique columns automatically when conflicts occur
+$qb->table('users')->upsert(
+    ['id' => 100, 'name' => 'John', 'age' => 26],
+    uniqueBy: ['id'],
+);
 
-// DO NOTHING
-$qb->table('users')
-   ->onConflictDoNothing('id')
-   ->insert(['id' => 42, 'name' => 'Douglas']);
-
-// DO UPDATE
-$qb->table('users')
-   ->onConflictDoUpdate('id', ['name' => Expression::make('EXCLUDED.name')])
-   ->insert(['id' => 42, 'name' => 'Douglas']);
+// Explicit assignments (MySQL uses VALUES(), Postgres uses EXCLUDED)
+$qb->table('users')->upsert(
+    ['id' => 100, 'name' => 'John', 'age' => 26],
+    uniqueBy: ['id'],
+    updateOnDuplicate: [
+        'name',                   // infer from column name
+        'updated_at' => Expression::make('NOW()'), // raw expression
+    ],
+);
 ```
 
-MySQL continues to support `ON DUPLICATE KEY UPDATE` through the same `upsert` API.
-
-When you omit the dialect, the builder inspects `PDO::ATTR_DRIVER_NAME` and automatically selects `PostgresDialect` for `pgsql` connections, falling back to MySQL-style quoting for everything else.
-
-### Insert And Get ID (PostgreSQL)
-
-When using the `PostgresDialect`, you can insert a single row and retrieve its generated id in one round-trip via `RETURNING`:
-
+- Do-nothing on conflict (Postgres):
 ```php
-use Abdulelahragih\QueryBuilder\Grammar\Dialects\PostgresDialect;
-
-$qb = new \Abdulelahragih\QueryBuilder\QueryBuilder($pdo, new PostgresDialect());
-
-$id = $qb->table('users')->insertGetId([
-    'name' => 'John',
-]);
-
-// Optionally specify the id column name (defaults to 'id')
-$id = $qb->table('users')->insertGetId([
-    'name' => 'Jane',
-], 'user_id');
+$qb->table('users')->insertOrIgnore(['id' => 100, 'name' => 'John'], uniqueColumns: ['id']);
 ```
 
-Note: `insertGetId` expects a single row payload. For multi-row inserts, use `insert` or `upsert`.
-
-## Nested Where
-You can add nested conditions to the Where clause by passing a closure to the `where` method. <br>
+- Insert and get the generated id (Postgres supports RETURNING, MySQL uses lastInsertId):
 ```php
-$result = $qb->table('users')
-   ->select('id', 'username', 'phone_number', 'gender')
-   ->where(function ($builder) {
-       $builder->where('role_id', '=', 1)
-           ->orWhere('role_id', '=', 2); 
+$id = $qb->table('users')->insertGetId(['name' => 'John']);
+// Optionally specify id column name
+$id = $qb->table('users')->insertGetId(['name' => 'Jane'], 'user_id');
+```
+
+## Updates and Deletes
+Both operations require a WHERE clause for safety and return the affected rows count:
+```php
+$updated = $qb->table('users')->where('id', '=', 1)->update(['name' => 'Sam']);
+$deleted = $qb->table('users')->whereIn('id', [1, 2])->delete();
+```
+
+## WHERE and JOIN Builders
+- WHERE helpers: `where`, `orWhere`, `whereIn`, `whereNotIn`, `whereLike`, `whereNotLike`, `whereNull`, `whereNotNull`, `whereBetween`, `whereNotBetween`, nested closures.
+- JOIN helpers: `join`, `leftJoin`, `rightJoin`, `fullJoin`, plus nested `where`/`orWhere` inside join closures and `on`/`orOn` for column comparisons.
+
+Examples (WHERE):
+```php
+// Basic where and multiple conditions (AND)
+$qb->table('users')
+   ->where('role_id', '=', 1)
+   ->where('status', '=', 'active')
+   ->toSql();
+
+// OR conditions
+$qb->table('users')
+   ->where('role_id', '=', 1)
+   ->orWhere('role_id', '=', 2)
+   ->toSql();
+
+// Nested groups
+$qb->table('users')
+   ->where('id', '=', 1)
+   ->orWhere(function ($w) {
+       $w->where('id', '=', 2)
+         ->where(function ($inner) {
+             $inner->where('name', '=', 'Sam')
+                   ->orWhere('name', '=', 'John');
+         });
    })
-   ->get();
+   ->toSql();
+
+// IN / NOT IN
+$qb->table('users')
+   ->whereIn('id', [1, 2, 3])
+   ->whereNotIn('status', ['banned'])
+   ->toSql();
+
+// LIKE / NOT LIKE
+$qb->table('users')
+   ->whereLike('name', '%Sam%')
+   ->whereNotLike('email', '%@spam.com')
+   ->toSql();
+
+// NULL / NOT NULL
+$qb->table('users')
+   ->whereNull('deleted_at')
+   ->whereNotNull('email')
+   ->toSql();
+
+// BETWEEN / NOT BETWEEN
+$qb->table('orders')
+   ->whereBetween('amount', 10, 100)
+   ->whereNotBetween('discount', 20, 30)
+   ->toSql();
 ```
-## Nested Join
-You can add nested conditions to the Join clause by passing a closure to the `join` method. <br>
+
+Examples (JOIN):
 ```php
-$result = $qb->table('users')
-    ->join('images', function (JoinClauseBuilder $builder) {
-        $builder->on('images.user_id', '=', 'users.id');
-        // you can use all where variants here
-        $builder->where('images.user_id', '=', 1);
-    })
+// Simple inner join with column-to-column comparison
+$qb->table('users')
+   ->join('images', 'images.user_id', '=', 'users.id')
+   ->toSql();
+
+// LEFT / RIGHT / FULL joins
+$qb->table('users')
+   ->leftJoin('orders', 'orders.user_id', '=', 'users.id')
+   ->rightJoin('profiles', 'profiles.user_id', '=', 'users.id')
+   ->toSql();
+
+// Join with additional filters and nested groups
+$qb->table('users')
+   ->join('images', function ($j) {
+       $j->on('images.user_id', '=', 'users.id');
+       $j->orWhere('images.user_id', '=', 1);
+       $j->where(function ($nested) {
+           $nested->where('images.user_id', '=', 3);
+           $nested->orWhere('images.id', '=', 1);
+       });
+   })
+   ->toSql();
+
+// Using orOn for alternative column matches
+$qb->table('users')
+   ->join('orders', function ($j) {
+       $j->on('orders.user_id', '=', 'users.id')
+         ->orOn('orders.alt_user_id', '=', 'users.id');
+   })
+   ->toSql();
+
+// Multiple joins chained
+$qb->table('users u')
+   ->join('orders o', 'o.user_id', '=', 'u.id')
+   ->join('comments c', 'c.user_id', '=', 'u.id')
+   ->select('u.id', 'o.amount')
+   ->toSql();
+```
+
+## Object Conversion
+Map rows to custom objects after fetching:
+```php
+$users = $qb->table('users')
+    ->objectConverter(fn(array $row) => (object) $row)
     ->get();
 ```
-## TODOs
-- [x] ~~Support Update, Delete, Insert~~
-- [ ] Support Creating Schemas
-- [x] ~~Add pluck method~~
-- [ ] Add support for sub-queries inside the Where and Join clauses
-- [x] ~~Implement a Collection class and make it the return type of get()~~
-- [ ] Add a `returning` method to the query allowing you to return columns of inserted/updated row(s)
-- [ ] Add support for different types of databases and refactor code, so it is easy to do so
-- [x] ~~Add support for Transactions~~
+
+## Transactions (Using the `DB` Wrapper)
+Let the builder handle transactions:
+```php
+use Abdulelahragih\QueryBuilder\DB;
+
+$db = new DB($pdo);
+$db->transaction(function () use ($db) {
+    $db->table('users')->insert(['id' => 200, 'name' => 'Txn']);
+});
+```
+Or manually:
+```php
+use Abdulelahragih\QueryBuilder\DB;
+
+$db = new DB($pdo);
+$db->beginTransaction();
+try {
+    $db->table('users')->insert(['id' => 200, 'name' => 'Txn']);
+    $db->commit();
+} catch (Exception $e) {
+    $db->rollBack();
+}
+```
+
+## Notes
+- Update/Delete without a WHERE clause throws an exception by default.
+- `insertGetId` expects a single row payload.
+- Feature set varies slightly by dialect (e.g., Postgres `RETURNING`, `ON CONFLICT ... DO NOTHING`).
 
 ## Contribution
-Any contribution to make this project better is welcome
+Contributions are welcome!

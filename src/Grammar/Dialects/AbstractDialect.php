@@ -13,18 +13,24 @@ use Abdulelahragih\QueryBuilder\Grammar\Clauses\LimitClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OffsetClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OnConflictClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderItem;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\WhereClause;
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\DeleteStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\InsertStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\SelectStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\UpdateStatement;
-use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
 use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
+use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
 use InvalidArgumentException;
 
 abstract class AbstractDialect implements Dialect
 {
+    public function compileRandom(string|int $seed = ''): string
+    {
+        return 'RANDOM()';
+    }
+
     public function compileSelect(SelectStatement $statement): string
     {
         $segments = ['SELECT'];
@@ -180,14 +186,27 @@ abstract class AbstractDialect implements Dialect
 
     protected function compileOrderByClause(OrderByClause $orderByClause): string
     {
-        $columns = $orderByClause->getColumns();
-        if (empty($columns)) {
+        $items = $orderByClause->getColumns();
+        if (empty($items)) {
             return '';
         }
 
-        $parts = array_map(function (array $item): string {
-            return $this->quoteIdentifier($item[0]) . ' ' . $item[1]->value;
-        }, $columns);
+        // Ensure items with higher priority (e.g., random) come first.
+        // Use original insertion index as a stable tiebreaker so equal-priority
+        // items preserve the chaining order.
+        usort($items, function (OrderItem $a, OrderItem $b) {
+            $byPriority = $b->getPriority() <=> $a->getPriority();
+            if ($byPriority !== 0) {
+                return $byPriority;
+            }
+            return $a->getIndex() <=> $b->getIndex();
+        });
+
+        $parts = array_map(function (OrderItem $item): string {
+            $identifier = $this->quoteIdentifier($item->getExpression());
+            $orderType = $item->getOrderType();
+            return $orderType === null ? $identifier : ($identifier . ' ' . $orderType->value);
+        }, $items);
 
         return 'ORDER BY ' . implode(', ', $parts);
     }
@@ -216,8 +235,8 @@ abstract class AbstractDialect implements Dialect
     protected function compileInsertColumns(array $columns): string
     {
         return '(' . SqlUtils::joinTo($columns, ', ', function ($column) {
-            return $this->quoteIdentifier($column);
-        }) . ')';
+                return $this->quoteIdentifier($column);
+            }) . ')';
     }
 
     protected function compileInsertValues(array $values): string

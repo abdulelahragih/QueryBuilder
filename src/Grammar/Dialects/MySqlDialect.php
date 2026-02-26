@@ -9,6 +9,11 @@ use Abdulelahragih\QueryBuilder\Helpers\BindingsManager;
 
 class MySqlDialect extends AbstractDialect
 {
+    public function compileRandom(string|int $seed = ''): string
+    {
+        return 'RAND('.$seed.')';
+    }
+
     protected function formatUpsertClause(array $updateOnDuplicateKey): string
     {
         $index = 0;
