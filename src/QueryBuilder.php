@@ -797,10 +797,10 @@ class QueryBuilder
      *
      * @param Expression|string $column The column to pluck values from.
      * @param Expression|string|null $key Optional column to use as keys in the returned collection.
-     * @return Collection
+     * @return array
      * @throws QueryBuilderException
      */
-    public function pluck(Expression|string $column, Expression|string|null $key = null): Collection
+    public function pluck(Expression|string $column, Expression|string|null $key = null): array
     {
         $queryResult = $this->onceWithColumns(
             is_null($key) || $key === $column ? [$column] : [$column, $key],
@@ -810,7 +810,7 @@ class QueryBuilder
         );
 
         if ($queryResult->isEmpty()) {
-            return new Collection();
+            return [];
         }
 
         // Strip table prefix or alias so we can look up the column in the result rows.
@@ -828,7 +828,7 @@ class QueryBuilder
             }
         }
 
-        return new Collection($results);
+        return $results;
     }
 
     /**

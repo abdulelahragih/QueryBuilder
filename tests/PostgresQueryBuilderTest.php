@@ -379,8 +379,8 @@ class PostgresQueryBuilderTest extends TestCase
             ->table('users')
             ->limit(3)
             ->pluck('id');
-        $this->assertInstanceOf(Collection::class, $result);
-        $this->assertEquals([1, 2, 3], $result->toArray());
+        $this->assertIsArray($result);
+        $this->assertEquals([1, 2, 3], $result);
     }
 
     public function testPluckWithTablePrefix()
@@ -389,7 +389,7 @@ class PostgresQueryBuilderTest extends TestCase
         $result = $builder
             ->table('users')
             ->pluck('users.id');
-        $this->assertEquals([1, 2, 3], $result->toArray());
+        $this->assertEquals([1, 2, 3], $result);
     }
 
     public function testPluckPreservesExistingSelect()
@@ -399,7 +399,7 @@ class PostgresQueryBuilderTest extends TestCase
             ->table('users')
             ->select($builder->raw('id AS user_id'))
             ->pluck('user_id');
-        $this->assertEquals([1, 2, 3], $result->toArray());
+        $this->assertEquals([1, 2, 3], $result);
     }
 
     public function testPluckWithKey()
@@ -408,7 +408,7 @@ class PostgresQueryBuilderTest extends TestCase
         $result = $builder
             ->table('users')
             ->pluck('name', 'id');
-        $this->assertEquals([1 => 'Sam', 2 => 'John', 3 => 'Jane'], $result->jsonSerialize());
+        $this->assertEquals([1 => 'Sam', 2 => 'John', 3 => 'Jane'], $result);
     }
 
     public function testPluckEmptyResult()
@@ -418,8 +418,8 @@ class PostgresQueryBuilderTest extends TestCase
             ->table('users')
             ->where('id', '=', 999)
             ->pluck('id');
-        $this->assertInstanceOf(Collection::class, $result);
-        $this->assertTrue($result->isEmpty());
+        $this->assertIsArray($result);
+        $this->assertEmpty($result);
     }
 
     public function testPluckWithExpression()
@@ -429,7 +429,7 @@ class PostgresQueryBuilderTest extends TestCase
             ->table('users')
             ->limit(3)
             ->pluck(Expression::make('id'));
-        $this->assertEquals([1, 2, 3], $result->toArray());
+        $this->assertEquals([1, 2, 3], $result);
     }
 
     public function testPluckWithJoinAndAlias()
@@ -440,7 +440,7 @@ class PostgresQueryBuilderTest extends TestCase
             ->join('users', 'users.id', '=', 'posts.user_id')
             ->select($builder->raw('posts.user_id AS uid'))
             ->pluck('uid');
-        $this->assertEquals([1, 1, 2], $result->toArray());
+        $this->assertEquals([1, 1, 2], $result);
     }
 
     public function testSingleInsert()
