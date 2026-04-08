@@ -3,38 +3,41 @@
 namespace Abdulelahragih\QueryBuilder\Grammar\Clauses;
 
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
-use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
 use Abdulelahragih\QueryBuilder\Types\OrderType;
 
 class OrderByClause implements Clause
 {
 
-    private array $columnsAndOrderTypes;
+    /**
+     * @var OrderItem[]
+     */
+    private array $items;
+    private int $counter;
 
     public function __construct()
     {
-        $this->columnsAndOrderTypes = [];
+        $this->items = [];
+        $this->counter = 0;
     }
 
     public function addColumn(Expression|string $name, OrderType $orderType): void
     {
-        $this->columnsAndOrderTypes[] = [$name, $orderType];
+        $this->items[] = new OrderItem($name, $orderType, 0, $this->nextIndex());
     }
 
-
-    public function build(): string
+    public function getColumns(): array
     {
-        if (empty($this->columnsAndOrderTypes)) {
-            return '';
-        }
-        return 'ORDER BY ' . implode(
-                ', ',
-                array_map(
-                    function ($item) {
-                        return SqlUtils::quoteIdentifier($item[0]) . ' ' . $item[1]->value;
-                    },
-                    $this->columnsAndOrderTypes
-                )
-            );
+        return $this->items;
+    }
+
+    public function addRandom(Expression $expr): void
+    {
+        // High priority to ensure random comes first when mixed with others
+        $this->items[] = new OrderItem($expr, null, 1, $this->nextIndex());
+    }
+
+    private function nextIndex(): int
+    {
+        return $this->counter++;
     }
 }

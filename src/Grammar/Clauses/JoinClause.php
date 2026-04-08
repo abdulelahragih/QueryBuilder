@@ -4,14 +4,13 @@ declare(strict_types=1);
 namespace Abdulelahragih\QueryBuilder\Grammar\Clauses;
 
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
-use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
 use Abdulelahragih\QueryBuilder\Types\JoinType;
 
 class JoinClause implements Clause
 {
-    private Expression|string $table;
-    private ConditionsClause $conditionClauses;
-    private JoinType $joinType;
+    public readonly Expression|string $table;
+    public readonly ConditionsClause $conditionClauses;
+    public readonly JoinType $joinType;
 
     /**
      * @param Expression|string $table
@@ -23,14 +22,5 @@ class JoinClause implements Clause
         $this->table = $table;
         $this->conditionClauses = $conditionClauses;
         $this->joinType = $joinType;
-    }
-
-
-    /**
-     * @return string
-     */
-    public function build(): string
-    {
-        return $this->joinType->value . ' JOIN ' . SqlUtils::quoteIdentifier($this->table) . ' ON ' . $this->conditionClauses->build();
     }
 }

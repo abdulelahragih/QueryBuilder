@@ -12,7 +12,11 @@ use Abdulelahragih\QueryBuilder\Grammar\Clauses\FromClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\JoinClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\LimitClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OffsetClause;
+use Abdulelahragih\QueryBuilder\Grammar\Clauses\OnConflictClause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\OrderByClause;
+use Abdulelahragih\QueryBuilder\Grammar\Dialects\Dialect;
+use Abdulelahragih\QueryBuilder\Grammar\Dialects\MySqlDialect;
+use Abdulelahragih\QueryBuilder\Grammar\Dialects\PostgresDialect;
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\DeleteStatement;
 use Abdulelahragih\QueryBuilder\Grammar\Statements\InsertStatement;
@@ -31,6 +35,7 @@ class QueryBuilder
 {
 
     private PDO $pdo;
+    private Dialect $dialect;
     private array $columns = [];
     private ?SelectStatement $selectClause = null;
     private WhereQueryBuilder $whereQueryBuilder;
@@ -46,11 +51,18 @@ class QueryBuilder
     private ?Closure $objConverter = null;
     private bool $isDistinct = false;
 
-    public function __construct(PDO $pdo)
+    public function __construct(PDO $pdo, ?Dialect $dialect = null)
     {
         $this->pdo = $pdo;
+        $this->dialect = $dialect ?? $this->detectDialect($pdo);
         $this->bindingsManager = new BindingsManager();
         $this->whereQueryBuilder = new WhereQueryBuilder($this->bindingsManager);
+    }
+
+    public function setDialect(Dialect $dialect): self
+    {
+        $this->dialect = $dialect;
+        return $this;
     }
 
     private function resetBuilderState(): void
@@ -104,7 +116,13 @@ class QueryBuilder
             if (isset($this->objConverter)) {
                 $items = array_map($this->objConverter, $items);
             }
-            $query = "SELECT COUNT(*) FROM {$this->fromClause->table} {$this->getJoinClause()} {$this->getWhereClause()}";
+            $countSelect = new SelectStatement(
+                $this->fromClause,
+                [Expression::make('COUNT(*)')],
+                $this->joinClauses,
+                $this->whereQueryBuilder->getWhereClause()
+            );
+            $query = $this->dialect->compileSelect($countSelect);
             $statement = $this->pdo->prepare($query);
             $statement->execute($this->bindingsManager->getBindingsOrNull());
             $total = (int)$statement->fetchColumn();
@@ -155,7 +173,7 @@ class QueryBuilder
         if (!isset($this->selectClause)) {
             $this->selectClause = $this->createSelectStatement();
         }
-        return $this->selectClause->build() . $this->queryEndMarker();
+        return $this->dialect->compileSelect($this->selectClause) . $this->queryEndMarker();
     }
 
     private function createSelectStatement(): SelectStatement
@@ -180,7 +198,7 @@ class QueryBuilder
         if (!isset($this->selectClause)) {
             $this->selectClause = $this->createSelectStatement();
         }
-        return $this->selectClause->build() . $this->queryEndMarker();
+        return $this->dialect->compileSelect($this->selectClause) . $this->queryEndMarker();
     }
 
     public function table(Expression|string $table): self
@@ -202,6 +220,10 @@ class QueryBuilder
      */
     public function update(array $columnsToValues, ?string &$resultedSql = null): ?int
     {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for update operation');
+        }
+
         try {
             // convert values to place holder
             $columnsToValues = array_map(function ($value) {
@@ -216,7 +238,7 @@ class QueryBuilder
                 $this->joinClauses,
                 $this->whereQueryBuilder->getWhereClause()
             );
-            $query = $updateStatement->build() . $this->queryEndMarker();
+            $query = $this->dialect->compileUpdate($updateStatement) . $this->queryEndMarker();
             $resultedSql = $query;
             $statement = $this->pdo->prepare($query);
             if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
@@ -230,13 +252,17 @@ class QueryBuilder
 
     public function delete(?string &$resultedSql = null): ?int
     {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for delete operation');
+        }
+
         try {
             $deleteStatement = new DeleteStatement(
                 $this->fromClause->table,
                 $this->joinClauses,
                 $this->whereQueryBuilder->getWhereClause()
             );
-            $query = $deleteStatement->build() . $this->queryEndMarker();
+            $query = $this->dialect->compileDelete($deleteStatement) . $this->queryEndMarker();
             $resultedSql = $query;
             $statement = $this->pdo->prepare($query);
             if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
@@ -250,11 +276,195 @@ class QueryBuilder
 
     /**
      * @param array $columnsToValues an associative array of columns to values to be inserted
-     * @param array|null $updateOnDuplicate
+     * @param array $uniqueBy columns that define uniqueness for conflict detection
+     * @param array|null $updateOnDuplicate columns to update on duplicate key (if null, updates all non-unique columns)
      * @param string|null $resultedSql
      * @return int|null the number of inserted rows or null on failure
      */
-    public function upsert(array $columnsToValues, ?array $updateOnDuplicate = [], ?string &$resultedSql = null): ?int
+    public function upsert(array $columnsToValues, array $uniqueBy, ?array $updateOnDuplicate = null, ?string &$resultedSql = null): ?int
+    {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for upsert operation');
+        }
+
+        try {
+            $this->bindingsManager->reset();
+            if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
+                // $columnsToValues is an array of arrays (multiple rows)
+                $columns = array_keys($columnsToValues[0]);
+                $values = array_map(function ($row) {
+                    // convert values to placeholders
+                    return array_map(function ($value) {
+                        return $this->bindingsManager->add($value);
+                    }, $row);
+                }, $columnsToValues);
+            } else {
+                // $columnsToValues is a single array (single row)
+                $columns = array_keys($columnsToValues);
+                $values = array_map(function ($value) {
+                    return $this->bindingsManager->add($value);
+                }, $columnsToValues);
+            }
+
+            // Delegate upsert-specific assignment building to the dialect
+            $built = $this->dialect->buildUpsertAssignments($columnsToValues, $uniqueBy, $updateOnDuplicate, $this->bindingsManager);
+            $updateOnDuplicateKey = $built['updateOnDuplicateKey'] ?? null;
+            $onConflictClause = $built['onConflictClause'] ?? null;
+
+            $insertStatement = new InsertStatement(
+                $this->fromClause->table,
+                $columns,
+                $values,
+                $updateOnDuplicateKey,
+                $onConflictClause
+            );
+            $query = $this->dialect->compileInsert($insertStatement) . $this->queryEndMarker();
+            $resultedSql = $query;
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return null;
+            }
+            return $statement->rowCount();
+
+        } finally {
+            $this->resetBuilderState();
+        }
+    }
+
+    /**
+     * @param array $columnsToValues an associative array of columns to values to be inserted
+     * @param string|null $resultedSql
+     * @return int|null the number of inserted rows or null on failure
+     */
+    public function insert(array $columnsToValues, ?string &$resultedSql = null): ?int
+    {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for insert operation');
+        }
+
+        try {
+            $this->bindingsManager->reset();
+            if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
+                // $columnsToValues is an array of arrays (multiple rows)
+                $columns = array_keys($columnsToValues[0]);
+                $values = array_map(function ($row) {
+                    // convert values to placeholders
+                    return array_map(function ($value) {
+                        return $this->bindingsManager->add($value);
+                    }, $row);
+                }, $columnsToValues);
+            } else {
+                // $columnsToValues is a single array (single row)
+                $columns = array_keys($columnsToValues);
+                $values = array_map(function ($value) {
+                    return $this->bindingsManager->add($value);
+                }, $columnsToValues);
+            }
+
+            $insertStatement = new InsertStatement(
+                $this->fromClause->table,
+                $columns,
+                $values,
+                null, // No update on duplicate
+                null  // No onConflictClause
+            );
+            $query = $this->dialect->compileInsert($insertStatement) . $this->queryEndMarker();
+            $resultedSql = $query;
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return null;
+            }
+            return $statement->rowCount();
+
+        } finally {
+            $this->resetBuilderState();
+        }
+    }
+
+    /**
+     * Insert a single row and return its generated primary key.
+     * For PostgreSQL, uses RETURNING to fetch the id in one round-trip.
+     * For other drivers, falls back to PDO::lastInsertId().
+     *
+     * @param array $columnsToValues an associative array of column => value pairs for a single row
+     * @param Expression|string $idColumn the id/primary key column to return (default: 'id')
+     * @param string|null $resultedSql the generated SQL (output)
+     * @return int|string|null the inserted id (int/string), or null on failure
+     * @throws QueryBuilderException
+     */
+    public function insertGetId(array $columnsToValues, Expression|string $idColumn = 'id', ?string &$resultedSql = null): int|string|null
+    {
+        if ($this->fromClause === null) {
+            throw new \TypeError('No table specified for insert operation');
+        }
+
+        // Ensure single-row insert
+        if (!empty($columnsToValues) && is_array(reset($columnsToValues))) {
+            throw new QueryBuilderException(QueryBuilderException::INVALID_QUERY, 'insertGetId supports single-row inserts only.');
+        }
+
+        try {
+            $this->bindingsManager->reset();
+
+            // Build columns and placeholder values
+            $columns = array_keys($columnsToValues);
+            $values = array_map(function ($value) {
+                return $this->bindingsManager->add($value);
+            }, $columnsToValues);
+
+            $insertStatement = new InsertStatement(
+                $this->fromClause->table,
+                $columns,
+                $values,
+                null,
+                null
+            );
+
+            $baseSql = $this->dialect->compileInsert($insertStatement);
+
+            // For Postgres use RETURNING to fetch the id in one go
+            if ($this->dialect instanceof PostgresDialect) {
+                $returning = ' RETURNING ' . $this->dialect->quoteIdentifier($idColumn);
+                $query = $baseSql . $returning . $this->queryEndMarker();
+                $resultedSql = $query;
+                $statement = $this->pdo->prepare($query);
+                if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                    return null;
+                }
+                $id = $statement->fetchColumn();
+                if ($id === false) {
+                    return null;
+                }
+                return is_numeric($id) ? (int)$id : $id;
+            }
+
+            // Fallback for other drivers: execute then read lastInsertId
+            $query = $baseSql . $this->queryEndMarker();
+            $resultedSql = $query;
+            $statement = $this->pdo->prepare($query);
+            if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
+                return null;
+            }
+            $lastId = $this->pdo->lastInsertId();
+            if ($lastId === '0' || $lastId === '') {
+                // Some drivers might not support lastInsertId as expected
+                return null;
+            }
+            return is_numeric($lastId) ? (int)$lastId : $lastId;
+
+        } finally {
+            $this->resetBuilderState();
+        }
+    }
+
+    /**
+     * Insert data and ignore on duplicate key conflicts
+     * @param array $columnsToValues an associative array of columns to values to be inserted
+     * @param array|null $uniqueColumns columns to check for conflicts (if null, uses all columns)
+     * @param string|null $resultedSql
+     * @return int|null the number of inserted rows or null on failure
+     */
+    public function insertOrIgnore(array $columnsToValues, ?array $uniqueColumns = null, ?string &$resultedSql = null): ?int
     {
         try {
             $this->bindingsManager->reset();
@@ -275,26 +485,20 @@ class QueryBuilder
                 }, $columnsToValues);
             }
 
-            if (!empty($updateOnDuplicate)) {
-                foreach ($updateOnDuplicate as $column => $value) {
-                    if (is_int($column)) {
-                        continue;
-                    }
-                    $updateOnDuplicate[$column] = $this->bindingsManager->add($value);
-                }
-            } elseif ($updateOnDuplicate === []) {
-                foreach ($columnsToValues as $column => $value) {
-                    $updateOnDuplicate[$column] = $this->bindingsManager->add($value);
-                }
-            }
+            // Use provided unique columns or default to all columns
+            $conflictColumns = $uniqueColumns ?? $columns;
+
+            // Create onConflictClause for DO NOTHING behavior
+            $onConflictClause = new OnConflictClause($conflictColumns, null);
 
             $insertStatement = new InsertStatement(
                 $this->fromClause->table,
                 $columns,
                 $values,
-                $updateOnDuplicate
+                null, // No update on duplicate
+                $onConflictClause
             );
-            $query = $insertStatement->build() . $this->queryEndMarker();
+            $query = $this->dialect->compileInsert($insertStatement) . $this->queryEndMarker();
             $resultedSql = $query;
             $statement = $this->pdo->prepare($query);
             if (!$statement->execute($this->bindingsManager->getBindingsOrNull())) {
@@ -307,21 +511,12 @@ class QueryBuilder
         }
     }
 
-    /**
-     * @param array $columnsToValues an associative array of columns to values to be inserted
-     * @param string|null $resultedSql
-     * @return int|null the number of inserted rows or null on failure
-     */
-    public function insert(array $columnsToValues, ?string &$resultedSql = null): ?int
-    {
-        return $this->upsert($columnsToValues, null, $resultedSql);
-    }
-
     public function distinct(): self
     {
         $this->isDistinct = true;
         return $this;
     }
+
 
     /**
      * @throws QueryBuilderException
@@ -344,6 +539,15 @@ class QueryBuilder
             $this->orderByClause = new OrderByClause();
         }
         $this->orderByClause->addColumn($column, OrderType::Descending);
+        return $this;
+    }
+
+    public function inRandomOrder(string|int $seed = ''): self
+    {
+        if (!isset($this->orderByClause)) {
+            $this->orderByClause = new OrderByClause();
+        }
+        $this->orderByClause->addRandom(Expression::make($this->dialect->compileRandom($seed)));
         return $this;
     }
 
@@ -530,24 +734,26 @@ class QueryBuilder
 
     public function getWhereClause(): string
     {
-        if ($this->whereQueryBuilder->isEmpty()) {
+        $whereClause = $this->whereQueryBuilder->getWhereClause();
+        if (empty($whereClause->conditionClauses->getConditions())) {
             return '';
         }
-        return ' ' . $this->whereQueryBuilder->build();
+
+        return ' ' . $this->dialect->compileWhereClause($whereClause);
     }
 
-    private function getJoinClause(): string
+
+    private function detectDialect(PDO $pdo): Dialect
     {
-        if (empty($this->joinClauses)) {
-            return '';
-        }
-
-        $joinClauses = '';
-        foreach ($this->joinClauses as $joinClause) {
-            $joinClauses .= $joinClause->build() . "\n";
-        }
-        return ' ' . trim($joinClauses);
+        $driverName = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        return $driverName === 'pgsql' ? new PostgresDialect() : new MySqlDialect();
     }
+
+    public function getDialect(): Dialect
+    {
+        return $this->dialect;
+    }
+
 
     private function queryEndMarker(): string
     {

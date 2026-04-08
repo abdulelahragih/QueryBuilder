@@ -36,21 +36,4 @@ class ConditionsClause implements Clause
         return $this->conditions;
     }
 
-    public function build(): string
-    {
-        $result = '';
-        $conditionsCount = count($this->conditions);
-        for ($i = 0; $i < $conditionsCount; $i++) {
-            $conditionsGroup = $this->conditions[$i];
-            if ($i == 0) {
-                $result .= $conditionsGroup->build();
-            } else {
-                $result .= $conditionsGroup->conjunction->build() . ' ' . $conditionsGroup->build();
-            }
-            if ($i != $conditionsCount - 1) {
-                $result .= ' ';
-            }
-        }
-        return $result;
-    }
 }

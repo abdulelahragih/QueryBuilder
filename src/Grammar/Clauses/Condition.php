@@ -4,8 +4,6 @@ declare(strict_types=1);
 namespace Abdulelahragih\QueryBuilder\Grammar\Clauses;
 
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
-use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
-
 class Condition implements Clause
 {
     public readonly Expression|string $left;
@@ -31,10 +29,5 @@ class Condition implements Clause
         $this->operator = $operator;
         $this->right = $right;
         $this->conjunction = $conjunction ?? Conjunction::AND();
-    }
-
-    public function build(): string
-    {
-        return SqlUtils::quoteIdentifier($this->left) . ' ' . $this->operator . ' ' . SqlUtils::quoteIdentifier($this->right);
     }
 }

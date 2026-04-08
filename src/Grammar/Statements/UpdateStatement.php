@@ -4,18 +4,12 @@ declare(strict_types=1);
 namespace Abdulelahragih\QueryBuilder\Grammar\Statements;
 
 use Abdulelahragih\QueryBuilder\Data\QueryBuilderException;
-use Abdulelahragih\QueryBuilder\Grammar\Clauses\Clause;
 use Abdulelahragih\QueryBuilder\Grammar\Clauses\WhereClause;
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
-use Abdulelahragih\QueryBuilder\Helpers\SqlUtils;
-use Abdulelahragih\QueryBuilder\Traits\CanBuildClause;
-
-class UpdateStatement implements Clause
+class UpdateStatement implements Statement
 {
-    use CanBuildClause;
-
     /**
-     * @param string $table
+     * @param Expression|string $table
      * @param array|null $columnsToValues
      * @param array|null $joinClause
      * @param WhereClause|null $whereClause
@@ -39,10 +33,35 @@ class UpdateStatement implements Clause
         $this->forceUpdate = $forceUpdate;
     }
 
+    public function getTable(): Expression|string
+    {
+        return $this->table;
+    }
+
+    public function getColumnsToValues(): ?array
+    {
+        return $this->columnsToValues;
+    }
+
+    public function getJoinClauses(): ?array
+    {
+        return $this->joinClause;
+    }
+
+    public function getWhereClause(): ?WhereClause
+    {
+        return $this->whereClause;
+    }
+
+    public function shouldForceUpdate(): bool
+    {
+        return $this->forceUpdate;
+    }
+
     /**
      * @throws QueryBuilderException
      */
-    public function build(): string
+    public function ensureSafe(): void
     {
         if (!isset($this->whereClause) || empty($this->whereClause->conditionClauses->getConditions())) {
             if (!$this->forceUpdate) {
@@ -51,16 +70,5 @@ class UpdateStatement implements Clause
                     'Update statement without where clause is not allowed. Use force(true) to force update.');
             }
         }
-        return 'UPDATE ' . SqlUtils::quoteIdentifier($this->table) . ' SET ' .
-            $this->buildSetClause($this->columnsToValues) .
-            $this->buildOrEmpty($this->joinClause) .
-            $this->buildOrEmpty($this->whereClause);
-    }
-
-    private function buildSetClause(array $columnsToValues): string
-    {
-        return implode(', ', array_map(function (Expression|string $column, string $value) {
-            return SqlUtils::quoteIdentifier($column) . ' = ' . $value;
-        }, array_keys($columnsToValues), $columnsToValues));
     }
 }

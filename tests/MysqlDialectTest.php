@@ -4,13 +4,14 @@ namespace Abdulelahragih\QueryBuilder\Tests;
 
 use Abdulelahragih\QueryBuilder\Builders\JoinClauseBuilder;
 use Abdulelahragih\QueryBuilder\Builders\WhereQueryBuilder;
+use Abdulelahragih\QueryBuilder\Data\QueryBuilderException;
 use Abdulelahragih\QueryBuilder\QueryBuilder;
 use Abdulelahragih\QueryBuilder\Tests\Traits\TestTrait;
 use Error;
 use Exception;
 use PHPUnit\Framework\TestCase;
 
-class QueryBuilderTest extends TestCase
+class MysqlDialectTest extends TestCase
 {
     use TestTrait;
 
@@ -233,6 +234,67 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals('SELECT `id`, `name` FROM `users` ORDER BY `id` ASC, `name` DESC;', $query);
     }
 
+    public function testInRandomOrder()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->select('id')
+            ->inRandomOrder()
+            ->toSql();
+        $this->assertEquals('SELECT `id` FROM `users` ORDER BY RAND();', $query);
+    }
+
+    public function testRandomComesFirstWhenChainedBeforeOrderBy()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->select('id')
+            ->inRandomOrder()
+            ->orderBy('id')
+            ->toSql();
+        $this->assertEquals('SELECT `id` FROM `users` ORDER BY RAND(), `id` ASC;', $query);
+    }
+
+    public function testRandomComesFirstWhenChainedAfterOrderBy()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->select('id')
+            ->orderBy('id')
+            ->inRandomOrder()
+            ->toSql();
+        $this->assertEquals('SELECT `id` FROM `users` ORDER BY RAND(), `id` ASC;', $query);
+    }
+
+    public function testRandomPreservesRelativeOrderOfOtherColumnsWhenRandomLast()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->select('id')
+            ->orderBy('name')
+            ->orderByDesc('id')
+            ->inRandomOrder()
+            ->toSql();
+        $this->assertEquals('SELECT `id` FROM `users` ORDER BY RAND(), `name` ASC, `id` DESC;', $query);
+    }
+
+    public function testRandomPreservesRelativeOrderOfOtherColumnsWhenRandomFirst()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('users')
+            ->select('id')
+            ->inRandomOrder()
+            ->orderBy('name')
+            ->orderByDesc('id')
+            ->toSql();
+        $this->assertEquals('SELECT `id` FROM `users` ORDER BY RAND(), `name` ASC, `id` DESC;', $query);
+    }
+
     public function testLimit()
     {
         $builder = new QueryBuilder($this->pdo);
@@ -310,7 +372,6 @@ class QueryBuilderTest extends TestCase
             $query
         );
     }
-
 
     public function testNestedJoinConditions()
     {
@@ -413,6 +474,7 @@ class QueryBuilderTest extends TestCase
                         'id' => 100,
                         'name' => 'John'
                     ],
+                    ['id'], // unique columns
                     [
                         'name'
                     ],
@@ -421,6 +483,29 @@ class QueryBuilderTest extends TestCase
         }
 
         $this->assertEquals('INSERT INTO `users` (`id`, `name`) VALUES (:v1, :v2) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);', $query);
+    }
+
+    public function testUpsertAutoInferColumnsToUpdate()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = null;
+        try {
+            $builder
+                ->table('users')
+                ->upsert(
+                    [
+                        'id' => 100,
+                        'ssn' => 1111111,
+                        'name' => 'John',
+                        'age' => 26
+                    ],
+                    ['id', 'ssn'], // unique columns
+                    null,
+                    $query);
+        } catch (Exception|Error) {
+        }
+
+        $this->assertEquals('INSERT INTO `users` (`id`, `ssn`, `name`, `age`) VALUES (:v1, :v2, :v3, :v4) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `age` = VALUES(`age`);', $query);
     }
 
     public function testUpsertWithCustomValueOnUpdate()
@@ -435,9 +520,8 @@ class QueryBuilderTest extends TestCase
                         'id' => 100,
                         'name' => 'John'
                     ],
-                    [
-                        'name' => 'Jane'
-                    ],
+                    ['id'],
+                    ['name' => 'Jane'],
                     $query);
         } catch (Exception|Error) {
         }
@@ -454,17 +538,18 @@ class QueryBuilderTest extends TestCase
                 ->table('users')
                 ->upsert(
                     [
-                        ['id' => 100, 'name' => 'John'],
-                        ['id' => 101, 'name' => 'Jane']
+                        ['id' => 100, 'name' => 'John', 'age' => 24],
+                        ['id' => 101, 'name' => 'Jane', 'age' => 21]
                     ],
-                    ['name'],
+                    ['id'], // unique columns
+                    null,
                     $query
                 );
         } catch (Exception|Error) {
         }
 
         $this->assertEquals(
-            'INSERT INTO `users` (`id`, `name`) VALUES (:v1, :v2), (:v3, :v4) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`);',
+            'INSERT INTO `users` (`id`, `name`, `age`) VALUES (:v1, :v2, :v3), (:v4, :v5, :v6) ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `age` = VALUES(`age`);',
             $query
         );
     }
@@ -486,6 +571,15 @@ class QueryBuilderTest extends TestCase
         $this->assertEquals('Sarah', $name);
     }
 
+    public function testUpdateWithoutWhereThrows()
+    {
+        $this->expectException(QueryBuilderException::class);
+
+        (new QueryBuilder($this->pdo))
+            ->table('users')
+            ->update(['name' => 'Test']);
+    }
+
     public function testDelete()
     {
         $builder = new QueryBuilder($this->pdo);
@@ -500,6 +594,15 @@ class QueryBuilderTest extends TestCase
         $this->assertNull($name);
         $name = $builder->table('users')->where('id', '=', 2)->first('name');
         $this->assertNull($name);
+    }
+
+    public function testDeleteWithoutWhereThrows()
+    {
+        $this->expectException(QueryBuilderException::class);
+
+        (new QueryBuilder($this->pdo))
+            ->table('users')
+            ->delete();
     }
 
     public function testEmptyWhereIn()
@@ -753,15 +856,27 @@ class QueryBuilderTest extends TestCase
             ->table('`users`')
             ->select('`id`', '`name`')
             ->toSql();
-        $this->assertEquals('SELECT ``id``, ``name`` FROM ``users``;', $query);
+        $this->assertEquals('SELECT ```id```, ```name``` FROM ```users```;', $query);
     }
 
-    public function testSpaceEscaping() {
+    public function testDoubleQuotes()
+    {
+        $builder = new QueryBuilder($this->pdo);
+        $query = $builder
+            ->table('``users``')
+            ->select('``id``')
+            ->toSql();
+
+        $this->assertEquals('SELECT `````id````` FROM `````users`````;', $query);
+    }
+
+    public function testSpaceEscaping()
+    {
         $builder = new QueryBuilder($this->pdo);
         $query = $builder
             ->table(' users ')
             ->select(' id  ` uid`', 'name ')
             ->toSql();
-        $this->assertEquals('SELECT ` id` `` uid``, `name ` FROM ` users `;', $query);
+        $this->assertEquals('SELECT ` id  `` uid```, `name ` FROM ` users `;', $query);
     }
 }
