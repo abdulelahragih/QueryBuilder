@@ -5,6 +5,7 @@ namespace Abdulelahragih\QueryBuilder\Tests;
 use Abdulelahragih\QueryBuilder\Builders\JoinClauseBuilder;
 use Abdulelahragih\QueryBuilder\Builders\WhereQueryBuilder;
 use Abdulelahragih\QueryBuilder\Data\QueryBuilderException;
+use Abdulelahragih\QueryBuilder\Data\Collection;
 use Abdulelahragih\QueryBuilder\DB;
 use Abdulelahragih\QueryBuilder\Grammar\Dialects\PostgresDialect;
 use Abdulelahragih\QueryBuilder\Grammar\Expression;
@@ -439,7 +440,68 @@ class PostgresQueryBuilderTest extends TestCase
             ->table('users')
             ->limit(3)
             ->pluck('id');
+        $this->assertIsArray($result);
         $this->assertEquals([1, 2, 3], $result);
+    }
+
+    public function testPluckWithTablePrefix()
+    {
+        $builder = new QueryBuilder($this->pdo, new PostgresDialect());
+        $result = $builder
+            ->table('users')
+            ->pluck('users.id');
+        $this->assertEquals([1, 2, 3], $result);
+    }
+
+    public function testPluckPreservesExistingSelect()
+    {
+        $builder = new QueryBuilder($this->pdo, new PostgresDialect());
+        $result = $builder
+            ->table('users')
+            ->select($builder->raw('id AS user_id'))
+            ->pluck('user_id');
+        $this->assertEquals([1, 2, 3], $result);
+    }
+
+    public function testPluckWithKey()
+    {
+        $builder = new QueryBuilder($this->pdo, new PostgresDialect());
+        $result = $builder
+            ->table('users')
+            ->pluck('name', 'id');
+        $this->assertEquals([1 => 'Sam', 2 => 'John', 3 => 'Jane'], $result);
+    }
+
+    public function testPluckEmptyResult()
+    {
+        $builder = new QueryBuilder($this->pdo, new PostgresDialect());
+        $result = $builder
+            ->table('users')
+            ->where('id', '=', 999)
+            ->pluck('id');
+        $this->assertIsArray($result);
+        $this->assertEmpty($result);
+    }
+
+    public function testPluckWithExpression()
+    {
+        $builder = new QueryBuilder($this->pdo, new PostgresDialect());
+        $result = $builder
+            ->table('users')
+            ->limit(3)
+            ->pluck(Expression::make('id'));
+        $this->assertEquals([1, 2, 3], $result);
+    }
+
+    public function testPluckWithJoinAndAlias()
+    {
+        $builder = new QueryBuilder($this->pdo, new PostgresDialect());
+        $result = $builder
+            ->table('posts')
+            ->join('users', 'users.id', '=', 'posts.user_id')
+            ->select($builder->raw('posts.user_id AS uid'))
+            ->pluck('uid');
+        $this->assertEquals([1, 1, 2], $result);
     }
 
     public function testSingleInsert()
