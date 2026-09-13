@@ -797,14 +797,103 @@ class QueryBuilder
     }
 
     /**
-     * Retrieve a single column from the result
+     * Get a collection of values from a given column.
+     *
+     * Like Laravel's pluck, this method temporarily sets the select columns
+     * only if no explicit select() was previously called (via onceWithColumns).
+     * It then strips table prefixes / aliases from the column name to correctly
+     * extract values from the result set.
+     *
+     * @param Expression|string $column The column to pluck values from.
+     * @param Expression|string|null $key Optional column to use as keys in the returned collection.
+     * @return array
      * @throws QueryBuilderException
      */
-    public function pluck(string $column): array
+    public function pluck(Expression|string $column, Expression|string|null $key = null): array
     {
-        $this->select($column);
-        $result = $this->get();
-        return $result->pluck($column);
+        $queryResult = $this->onceWithColumns(
+            is_null($key) || $key === $column ? [$column] : [$column, $key],
+            function () {
+                return $this->get();
+            }
+        );
+
+        if ($queryResult->isEmpty()) {
+            return [];
+        }
+
+        // Strip table prefix or alias so we can look up the column in the result rows.
+        $column = $this->stripTableForPluck($column);
+        $key = $this->stripTableForPluck($key);
+
+        $results = [];
+        foreach ($queryResult as $row) {
+            $row = (array)$row;
+            $value = $row[$column] ?? null;
+            if (is_null($key)) {
+                $results[] = $value;
+            } else {
+                $results[$row[$key] ?? null] = $value;
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Execute the given callback while selecting the given columns.
+     *
+     * If columns have already been explicitly set via select(), they are preserved.
+     * After running the callback, the columns are restored to their original value.
+     *
+     * @param array $columns Columns to use if none were set.
+     * @param callable $callback The callback that executes the query.
+     * @return mixed The result of the callback.
+     */
+    private function onceWithColumns(array $columns, callable $callback): mixed
+    {
+        $original = $this->columns;
+
+        if (empty($original)) {
+            $this->columns = $columns;
+        }
+
+        $result = $callback();
+
+        $this->columns = $original;
+
+        return $result;
+    }
+
+    /**
+     * Strip off the table name or alias from a column identifier.
+     *
+     * Handles both Expression objects and plain strings.
+     * Examples:
+     *   "users.id"              → "id"
+     *   "users.id AS user_id"   → "user_id"
+     *   "id AS user_id"         → "user_id"
+     *
+     * @param Expression|string|null $column
+     * @return string|null
+     */
+    private function stripTableForPluck(Expression|string|null $column): ?string
+    {
+        if (is_null($column)) {
+            return null;
+        }
+
+        $columnString = $column instanceof Expression
+            ? $column->getValue()
+            : $column;
+
+        // If the column contains " AS " (case-insensitive), split on that.
+        // Otherwise, split on "." to strip the table prefix.
+        $separator = str_contains(strtolower($columnString), ' as ') ? ' as ' : '\.';
+
+        $parts = preg_split('~' . $separator . '~i', $columnString);
+
+        return end($parts);
     }
 
     /**

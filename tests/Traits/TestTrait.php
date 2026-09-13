@@ -30,5 +30,18 @@ trait TestTrait
         $this->pdo->exec("INSERT INTO users (id, name) VALUES (1, 'Sam');");
         $this->pdo->exec("INSERT INTO users (id, name) VALUES (2, 'John');");
         $this->pdo->exec("INSERT INTO users (id, name) VALUES (3, 'Jane');");
+
+        // create table posts for join tests
+        $this->pdo->exec('
+        CREATE TABLE IF NOT EXISTS posts (
+            id INT PRIMARY KEY,
+            user_id INT,
+            title VARCHAR(255)
+        );
+        ');
+        $this->pdo->exec('DELETE FROM posts');
+        $this->pdo->exec("INSERT INTO posts (id, user_id, title) VALUES (1, 1, 'Post 1');");
+        $this->pdo->exec("INSERT INTO posts (id, user_id, title) VALUES (2, 1, 'Post 2');");
+        $this->pdo->exec("INSERT INTO posts (id, user_id, title) VALUES (3, 2, 'Post 3');");
     }
 }
